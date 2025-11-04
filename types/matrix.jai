@@ -135,7 +135,7 @@ operator* :: (a: $Ta/Matrix, b: $Tb/Matrix) -> $RT/Matrix
 }
 
 
-translate :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
+translate :: inline (mat: *$MT/Matrix, vec: Vector) {
     #assert(MT.COL > 3);
     
     #if MT.T != VT.T {
@@ -149,13 +149,13 @@ translate :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
     }
 }
 
-translate :: (mat: $MT/Matrix, vec: $VT/Vector) -> MT {
+translate :: (mat: $MT/Matrix, vec: Vector) -> MT {
     result: MT;
     translate(*result, vec);
     return result;
 }
 
-set_translation :: inline (mat: *$MT/Matrix, vec: Vec3) {
+set_translation :: inline (mat: *$MT/Matrix, vec: $VT/Vectors3) {
     #assert MT.COL > 3 "Matrix has no capacity to store 3d translation";
 
     mat._03 = vec.x;
@@ -163,7 +163,7 @@ set_translation :: inline (mat: *$MT/Matrix, vec: Vec3) {
     mat._23 = vec.z;
 }
 
-set_translation :: (mat: $MT/Matrix, vec: Vec3) -> MT {
+set_translation :: (mat: $MT/Matrix, vec: $VT/Vectors3) -> MT {
     result: MT;
     set_translation(*result, vec);
     return result;

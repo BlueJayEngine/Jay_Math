@@ -28,35 +28,26 @@ is_nan_is_inf :: (x: $T/Numbers) -> (isnan: bool, isinf: bool) {
     return false, false;
 }
 
-isnan :: (x: $T/Numbers) -> bool {
-    return is_nan_is_inf(x);
-}
-
-isinf :: (x: $T/Numbers) -> bool {
-    _, _isinf := is_nan_is_inf(x);
-    return _isinf;
-}
-
 is_finite :: (x: $T/Numbers) -> bool {
     uf := << cast(*u64)*x;
     unbiased_exponent := cast(s32) ((uf >> 52) & 0x7ff);  // @Speed: Could remove shift by doing big mask.
     return unbiased_exponent != 0x7ff;
 }
 
-is_nan_is_inf :: (x: $T/Numbers) -> (isnan: bool, isinf: bool) {
-    uf := << cast(*u32)*x;
-    unbiased_exponent := (uf >> 23) & 0xff;
-    if unbiased_exponent == 0xff {
-        raw_mantissa := uf & 0x7f_ffff;
-        if raw_mantissa == 0 {
-            return false, true;
-        } else {
-            return true, false;
-        }
-    }
+// is_nan_is_inf :: (x: $T/Numbers) -> (isnan: bool, isinf: bool) {
+//     uf := << cast(*u32)*x;
+//     unbiased_exponent := (uf >> 23) & 0xff;
+//     if unbiased_exponent == 0xff {
+//         raw_mantissa := uf & 0x7f_ffff;
+//         if raw_mantissa == 0 {
+//             return false, true;
+//         } else {
+//             return true, false;
+//         }
+//     }
 
-    return false, false;
-}
+//     return false, false;
+// }
 
 isnan :: (x: $T/Numbers) -> bool {
     return is_nan_is_inf(x);

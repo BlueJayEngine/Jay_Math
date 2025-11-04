@@ -1,20 +1,24 @@
-Vec2 :: Vector(2, float64, DEFAULT_AXES);
-Vec3 :: Vector(3, float64, DEFAULT_AXES);
-Vec4 :: Vector(4, float64, DEFAULT_AXES);
-
 Vec2f :: Vector(2, float32, DEFAULT_AXES);
 Vec3f :: Vector(3, float32, DEFAULT_AXES);
 Vec4f :: Vector(4, float32, DEFAULT_AXES);
 
-Vec2i :: Vector(2, s32, DEFAULT_AXES);
-Vec3i :: Vector(3, s32, DEFAULT_AXES);
-Vec4i :: Vector(4, s32, DEFAULT_AXES);
+Vec2d :: Vector(2, float64, DEFAULT_AXES);
+Vec3d :: Vector(3, float64, DEFAULT_AXES);
+Vec4d :: Vector(4, float64, DEFAULT_AXES);
+
+Vec2s :: Vector(2, s32, DEFAULT_AXES);
+Vec3s :: Vector(3, s32, DEFAULT_AXES);
+Vec4s :: Vector(4, s32, DEFAULT_AXES);
+
+Vec2u :: Vector(2, u32, DEFAULT_AXES);
+Vec3u :: Vector(3, u32, DEFAULT_AXES);
+Vec4u :: Vector(4, u32, DEFAULT_AXES);
 
 DEFAULT_AXES :: string.["x", "y", "z", "w"]; 
 
-Vectors2 :: Type.[Vec2, Vec2f];
-Vectors3 :: Type.[Vec3, Vec3f];
-Vectors4 :: Type.[Vec4, Vec4f];
+Vectors2 :: Type.[Vec2d, Vec2f, Vec2s, Vec2u];
+Vectors3 :: Type.[Vec3d, Vec3f, Vec3s, Vec3u];
+Vectors4 :: Type.[Vec4d, Vec4f, Vec4s, Vec4u];
 
 USE_SIMD :: false;
 
@@ -70,7 +74,7 @@ Vector :: struct(N: u8, T: Type = float64, AXES: []string) {
 
         #insert -> string {
             builder: String_Builder;
-            for i: 0..max(VT.N, N)-1 {
+            for i: 0..max(a.N, N)-1 {
                 print_to_builder(*builder, "\tresult.values[%1] = cast(T)vec.values[%1];\n", i);
             }
 
@@ -102,16 +106,16 @@ Vector :: struct(N: u8, T: Type = float64, AXES: []string) {
     }
 }
 
-operator []= :: (vec: *$VT/Vector, index: s64, value: VT.T) {
+operator []= :: (vec: *Vector, index: s64, value: vec.T) {
     vec.values[index] = value;
 }
 
-operator [] :: (vec: *$VT/Vector, index: s64) -> VT.T {
+operator [] :: (vec: *Vector, index: s64) -> vec.T {
     return vec.values[index];
 }
 
-operator + :: (a: $VT/Vector, b: VT) -> VT {
-    result: VT = --- #align 16;
+operator + :: (a: Vector, b: type_of(a)) -> type_of(a) {
+    result: type_of(a) = --- #align 16;
     #if USE_SIMD {
         result = a;
         simd_type := __simd_type;
@@ -119,7 +123,7 @@ operator + :: (a: $VT/Vector, b: VT) -> VT {
     } else {
         #insert -> string {
             builder: String_Builder;
-            for i: 0..VT.N-1 {
+            for i: 0..a.N-1 {
                 print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
             }
 
@@ -131,15 +135,15 @@ operator + :: (a: $VT/Vector, b: VT) -> VT {
     return result;
 }
 
-operator - :: (a: $VT/Vector, b: VT) -> VT {
-    result: VT = ---;
+operator - :: (a: Vector, b: type_of(a)) -> type_of(a) {
+    result: type_of(a) = ---;
     #if USE_SIMD {
         result = a;
         simd_subtract(result.values, b.values, __simd_type);
     } else {
         #insert -> string {
             builder: String_Builder;
-            for i: 0..VT.N-1 {
+            for i: 0..a.N-1 {
                 print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
             }
 
@@ -150,15 +154,15 @@ operator - :: (a: $VT/Vector, b: VT) -> VT {
     return result;
 }
 
-operator * :: (a: $VT/Vector, b: VT) -> VT {
-    result: VT = ---;
+operator * :: (a: Vector, b: type_of(a)) -> type_of(a) {
+    result: type_of(a) = ---;
     #if USE_SIMD {
         result = a;
         simd_multiply(result.values, b.values, __simd_type);
     } else {
         #insert -> string {
             builder: String_Builder;
-            for i: 0..VT.N-1 {
+            for i: 0..a.N-1 {
                 print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
             }
 
@@ -169,15 +173,15 @@ operator * :: (a: $VT/Vector, b: VT) -> VT {
     return result;
 }
 
-operator / :: (a: $VT/Vector, b: VT) -> VT {
-    result: VT = ---;
+operator / :: (a: Vector, b: type_of(a)) -> type_of(a) {
+    result: type_of(a) = ---;
     #if USE_SIMD {
         result = a;
         simd_divide(result.values, b.values, __simd_type);
     } else {
         #insert -> string {
             builder: String_Builder;
-            for i: 0..VT.N-1 {
+            for i: 0..a.N-1 {
                 print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
             }
 
@@ -190,11 +194,11 @@ operator / :: (a: $VT/Vector, b: VT) -> VT {
 
 
 
-operator + :: (a: $VT/Vector, b: VT.T) -> VT {
-    result: VT = ---;
+operator + :: (a: Vector, b: $T/Numbers) -> type_of(a) {
+    result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
-        for i: 0..VT.N-1 {
+        for i: 0..a.N-1 {
             print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b;\n", i, i, i);
         }
 
@@ -204,11 +208,11 @@ operator + :: (a: $VT/Vector, b: VT.T) -> VT {
     return result;
 }
 
-operator - :: (a: $VT/Vector, b: VT.T) -> VT {
-    result: VT = ---;
+operator - :: (a: Vector, b: $T/Numbers) -> type_of(a) {
+    result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
-        for i: 0..VT.N-1 {
+        for i: 0..a.N-1 {
             print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b;\n", i, i, i);
         }
 
@@ -218,12 +222,16 @@ operator - :: (a: $VT/Vector, b: VT.T) -> VT {
     return result;
 }
 
-operator * :: (a: $VT/Vector, b: VT.T) -> VT {
-    result: VT = ---;
+operator * :: (a: Vector, b: $T/Numbers) -> type_of(a) {
+    result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
-        for i: 0..VT.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b;\n", i, i, i);
+        for i: 0..a.N-1 {
+            if T != a.T {
+                print_to_builder(*builder, "\tresult.values[%] = cast(a.T)(a.values[%] * b);\n", i, i, i);
+            } else {
+                print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b;\n", i, i, i);
+            }
         }
 
         return builder_to_string(*builder);
@@ -232,11 +240,11 @@ operator * :: (a: $VT/Vector, b: VT.T) -> VT {
     return result;
 }
 
-operator / :: (a: $VT/Vector, b: VT.T) -> VT {
-    result: VT = ---;
+operator / :: (a: Vector, b: $T/Numbers) -> type_of(a) {
+    result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
-        for i: 0..VT.N-1 {
+        for i: 0..a.N-1 {
             print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b;\n", i, i, i);
         }
 
@@ -246,11 +254,11 @@ operator / :: (a: $VT/Vector, b: VT.T) -> VT {
     return result;
 }
 
-operator == :: (a: $VT/Vector, b: VT) -> bool {
+operator == :: (a: Vector, b: type_of(a)) -> bool {
     #insert -> string {
         builder: String_Builder;
         print_to_builder(*builder, "\treturn a.values[0] == b.values[0]");
-        for i: 1..VT.N-1 {
+        for i: 1..a.N-1 {
             print_to_builder(*builder, " && a.values[%1] == b.values[%1]", i);
         }
         print_to_builder(*builder, ";");
@@ -259,11 +267,11 @@ operator == :: (a: $VT/Vector, b: VT) -> bool {
     }
 }
 
-operator != :: (a: $VT/Vector, b: VT) -> bool {
+operator != :: (a: Vector, b: type_of(a)) -> bool {
     #insert -> string {
         builder: String_Builder;
         print_to_builder(*builder, "\treturn a.values[0] != b.values[0]\n");
-        for i: 1..VT.N-1 {
+        for i: 1..a.N-1 {
             print_to_builder(*builder, "\t\t&& a.values[%1] != b.values[%1]", i);
         }
         print_to_builder(*builder, ";");
@@ -339,4 +347,8 @@ build_init :: (builder: *String_Builder, components: []u8, axes: []string) {
     }
 
     print_to_builder(builder, "\n\t\treturn result;\n\t}\n");
+}
+
+lerp :: inline (a: Vector, b: type_of(a), t: float64) -> type_of(a) {
+    return a + (b - a) * t;
 }
