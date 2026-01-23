@@ -28,25 +28,24 @@ Matrix :: struct(COL: u8, ROW: u8, T: Type) {
         return builder_to_string(*builder);
     }
 
-    #place _00; values: [COL*ROW] T = ---;
-    #place _00; cells: [ROW][COL] T = ---;
+    #overlay (_00) values: [COL*ROW] T = ---;
+    #overlay (_00) cells: [ROW][COL] T = ---;
 
-    identity :: () -> Matrix(COL,ROW,T) {
-        #insert -> string {
-            builder: String_Builder;
-            print_to_builder(*builder, "\nreturn .{");
+    identity :: () -> Matrix(COL,ROW,T) { 
+        return #run -> Matrix(COL, ROW, T) {
+            result: Matrix(COL,ROW,T);
             for h: 0..ROW-1 {
                 for w: 0..COL-1 {
-                    print_to_builder(*builder, ifx h == w then "1" else "0");
-                    if (h+1)*(w+1) < ROW*COL {
-                        print_to_builder(*builder, ",");
-                    }
+                    ifx h==w {
+                        result.cells[h][w] = 1; 
+                    } else {
+                        result.cells[h][w] = 0;
+                    } 
                 }
             }
-            print_to_builder(*builder, "};\n");
-            return builder_to_string(*builder);
-        }
-    }
+            return result;
+        };
+    }  
 }
 
 operator[]= :: (mat: *$MT/Matrix, index: int, value: [MT.W] MT.T) {
@@ -176,5 +175,5 @@ rotate :: (mat: $MT/Matrix, rot: Rot) -> MT {
 }
 
 rotate :: (mat: *$MT/Matrix, rot: Rot) {
-    <<mat *= to_matrix(rot);
+    mat.* *= to_matrix(rot);
 }

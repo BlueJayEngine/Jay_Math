@@ -1,21 +1,32 @@
-#load "cephes.jai";
-#load "scalar.jai";
+#load "types/number.jai";
 #load "types/vector.jai";
 #load "types/matrix.jai";
 #load "types/quaternion.jai";
 #load "types/euler.jai";
 #load "transform.jai";
 
+#load "simd/add.jai";
+
 #import "Basic";
 
+#load "test.jai";
 
 // Scalar constants from standart Math module
 
-TAU32   :: cast(float32) 6.283185;
-TAU :: 6.28318530717958648;
+TAU     :: 0h4019_21fb_5444_2d18;
+TAU32   :: 0h40c9_0fdb;
 
-PI32    :: cast(float32) 3.1415927;
-PI :: 3.141592653589793;
+PI      :: 0h4009_21fb_5444_2d18;
+PI32    :: 0h4049_0fdb;
+
+PI_2    :: PI/2;
+PI32_2  :: PI32/2;
+
+PI_4    :: PI/4;
+PI32_4  :: PI32/4;
+
+INV_PI  :: 1/PI;
+INV_PI32:: 1/PI32;
 
 FLOAT16_MAX : float :   65504.0;
 
@@ -45,8 +56,14 @@ U64_MAX :u64:   0xffff_ffff_ffff_ffff;
 DEG_TO_RAD :float64: PI/180.0;
 RAD_TO_DEG :float64: 180.0/PI;
 
-#scope_module
+EPSILON_32 :float32: 0h33FF_FFD7;
+EPSILON_64 :float64: 0h3CB0_0001_DD9D_C7D3;
+
 
 Numbers :: Type.[s8, u8, s16, u16, s32, u32, float32, s64, u64, float64];
 Floats :: Type.[float32, float64];
-Reals :: Type.[s8, u8, s16, u16, s32, u32, s64, u64];
+Integers :: Type.[s8, u8, s16, u16, s32, u32, s64, u64];
+
+Numbers16 :: Type.[s16, u16];
+Numbers32 :: Type.[s32, u32, float32];
+Numbers64 :: Type.[s64, u64, float64];
