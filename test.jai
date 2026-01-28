@@ -92,6 +92,7 @@ assert_close :: (label: string, a: $T/Floats, b: T, index: $inT) {
 
 refi32 : []s32;
 resi32 : []s32;
+deltai32 : []s32;
 
 refi64 : []s64;
 resi64 : []s64;
@@ -570,35 +571,49 @@ cephes_test :: () {
     print("\nSIMD:\n"); 
     
     refi32 = NewArray(200000000, s32);
-    resi32 = NewArray(200000000, s32);  
+    resi32 = NewArray(200000000, s32);
+
+    deltai32 = NewArray(200000000, s32);
 
     for 0..200000000-1 {
 
         refi32[it] = xx it;
-        resi32[it] = xx it; 
+        resi32[it] = xx it;
+        deltai32[it] = xx it;
     }
 
     
     do_test("add_s32_default", () {
 
         for 0..200000000-1 {
-            refi32[it] = refi32[it] + resi32[it];
+            refi32[it] = refi32[it] + deltai32[it];
         }
     });
 
-    for 0..200000000-1 {
+    do_test("add_s32_4", () {
 
-        refi32[it] = xx it;
-        resi32[it] = xx it; 
+        for 0..50000000-1 {
+            add_s32_4(*resi32[it*4], *deltai32[it*4]);
+        } 
+    });
+
+    do_test("add_s32_4 - correctness", () {
+
+        error = 0;
+
+        for 0..200000000-1 {
+            assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
+        }
+    }, true); 
+   
+    for 0..200000000-1 {
+        resi32[it] = xx it;
     }
 
-   do_test("add_s32_8", () {
+    do_test("add_s32_8", () {
 
         for 0..25000000-1 {
-            // its :s32= xx it;
-            // input: [8]s32 = .[ its*8, its*8+1, its*8+2, its*8+3, its*8+4, its*8+5, its*8+6, its*8+7];
-
-            add_s32_8(*resi32[it*8], *refi32[it*8]);
+            add_s32_8(*resi32[it*8], *deltai32[it*8]);
         } 
     });
 
@@ -609,8 +624,27 @@ cephes_test :: () {
         for 0..200000000-1 {
             assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
         }
-    }, true); 
-    
+    }, true);
+
+    for 0..200000000-1 {
+        resi32[it] = xx it;
+    }
+
+    do_test("add_s32_16", () {
+
+        for 0..12500000-1 {
+            add_s32_16(*resi32[it*16], *deltai32[it*16]);
+        } 
+    });
+
+    do_test("add_s32_16 - correctness", () {
+
+        error = 0;
+
+        for 0..200000000-1 {
+            assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
+        }
+    }, true);
 }
 
 math_test :: () {

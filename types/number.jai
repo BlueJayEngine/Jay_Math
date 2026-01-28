@@ -1,9 +1,3 @@
-reinterp :: inline ($toT: Type, x: $T) -> toT {
-    union { from : T = ---; to : toT = ---; }    
-    from = x;
-    return to;
-}
-
 abs :: inline (x: $T/Numbers) -> T {
     if x < 0 return -x;
     return x;
@@ -31,19 +25,19 @@ is_nan_is_inf :: inline (x: float64) -> (isnan: bool, isinf: bool) {
 }
 
 is_finite :: inline (x: float64) -> bool {
-    uf := (.*) cast(*u64)*x;
+    uf := reinterp(u64, x);
     unbiased_exponent := cast(s32) ((uf >> 52) & 0x7ff);  // @Speed: Could remove shift by doing big mask.
     return unbiased_exponent != 0x7ff;
 }
 
 is_finite :: inline (x: float32) -> bool {
-    uf := (cast(*u32)*x).*;
+    uf := reinterp(u32, x);
     unbiased_exponent := (uf >> 23) & 0xff;
     return unbiased_exponent != 0xff;
 }
 
 is_nan_is_inf :: inline (x: float32) -> (isnan: bool, isinf: bool) {
-    uf := (.*) cast(*u32)*x;
+    uf := reinterp(u32, x);
     unbiased_exponent := (uf >> 23) & 0xff;
     if unbiased_exponent == 0xff {
         raw_mantissa := uf & 0x7f_ffff;

@@ -8,6 +8,7 @@
 #load "simd/add.jai";
 
 #import "Basic";
+#import "Jay_Utils";
 
 #load "test.jai";
 
