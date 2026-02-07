@@ -2,6 +2,7 @@
 #import "Compiler";
 Math :: #import "Math";
 #import,file "module.jai";
+#import "Machine_X64";
 #import "Process";
 #import "String";
 
@@ -9,106 +10,76 @@ make_non_binary_workspace :: () {
     set_build_options_dc(.{do_output=false});
 }
 
-gt :: (x:$T, label: string) -> string {
-    l := stop_at_any(label, "_36");
-    if l == "atan2" {
-        l = sprint("atan2(%, -%)", x, x);
-    } else {
-        l = sprint("%(%)", l, x);
-    }
-    r,res_str := run_command("python3", "-c", sprint(#string CMD
-import math,
-print(math.%)
-CMD, l), sprint("%", x), capture_and_return_output=true);
-    return res_str; 
-} 
-
-// assert_vec3_matches :: (label: string, jay: Vec3f, reference: Math.Vector3) {
-//     dx := abs(jay.x - reference.x);
-//     dy := abs(jay.y - reference.y);
-//     dz := abs(jay.z - reference.z);
-//
-//     if (dx > TOLERANCE) || (dy > TOLERANCE) || (dz > TOLERANCE) {
-//         log_error("% mismatch. Vec3f = {%, %, %}, Vector3 = {%, %, %}\n",
-//                   label, jay.x, jay.y, jay.z, reference.x, reference.y, reference.z);
-//         assert(false);
-//     }
-//
-//     log("% OK\n", label);
-// }
-
-error: float64 = 0;
-
 assert_close :: (label: string, a: $T/Floats, b: T, index: $inT) {
     delta := abs(a-b);
     error += xx delta;
     if delta > epsilon(T) {
-        ground_truth:= gt(cast(float64)index, label); 
-        log_error("% mismatch. Index = %, left = %, right = % || GT = %\n", label, index, formatFloat(a, -1, -1, FormatFloat.Mode.SCIENTIFIC), formatFloat(b, -1, -1, FormatFloat.Mode.SCIENTIFIC), ground_truth);
+        log_error("% mismatch. Index = %, left = %, right = % \n", label, index, formatFloat(a, -1, -1, FormatFloat.Mode.SCIENTIFIC), formatFloat(b, -1, -1, FormatFloat.Mode.SCIENTIFIC));
         exit(1);
     } 
 }
 
-// math_test :: () {
-//     base_jay  := Vec3f.{1.0, 2.0, 3.0};
-//     base_math := Math.Vector3.{1.0, 2.0, 3.0};
-//
-//     delta_jay  := Vec3f.{4.0, 5.0, 6.0};
-//     delta_math := Math.Vector3.{4.0, 5.0, 6.0};
-//
-//     added_jay  := base_jay + delta_jay;
-//     added_math := Math.Vector3.{base_math.x + delta_math.x, base_math.y + delta_math.y, base_math.z + delta_math.z};
-//     assert_vec3_matches("add", added_jay, added_math);
-//
-//     sub_jay  := added_jay - delta_jay;
-//     sub_math := Math.Vector3.{added_math.x - delta_math.x, added_math.y - delta_math.y, added_math.z - delta_math.z};
-//     assert_vec3_matches("subtract", sub_jay, sub_math);
-//
-//     scaled_jay  := base_jay * 2.5;
-//     scaled_math := Math.Vector3.{base_math.x * 2.5, base_math.y * 2.5, base_math.z * 2.5};
-//     assert_vec3_matches("scale", scaled_jay, scaled_math);
-//
-//     divided_jay  := added_jay / 2.0;
-//     divided_math := Math.Vector3.{added_math.x / 2.0, added_math.y / 2.0, added_math.z / 2.0};
-//     assert_vec3_matches("divide", divided_jay, divided_math);
-//
-//     component_mul_jay  := base_jay * delta_jay;
-//     component_mul_math := Math.Vector3.{base_math.x * delta_math.x, base_math.y * delta_math.y, base_math.z * delta_math.z};
-//     assert_vec3_matches("component multiply", component_mul_jay, component_mul_math);
-//
-//     component_div_jay  := added_jay / Vec3f.{2.0, 5.0, 2.0};
-//     component_div_math := Math.Vector3.{added_math.x / 2.0, added_math.y / 5.0, added_math.z / 2.0};
-//     assert_vec3_matches("component divide", component_div_jay, component_div_math);
-//
-//     t32 : float = 0.35;
-//     lerped_jay  := lerp(base_jay, delta_jay, cast(float64)t32);
-//     lerped_math := Math.lerp(base_math, delta_math, t32);
-//     assert_vec3_matches("lerp", lerped_jay, lerped_math);
-//
-//     length_jay  := length(base_jay);
-//     length_math := Math.length(base_math);
-//     assert_close("length", length_jay, length_math);
-// }
+DATA_BYTES :: 80000000; 
 
-refi32 : []s32;
-resi32 : []s32;
-deltai32 : []s32;
+Test_Data :: struct(T:Type) {
+    ref : [DATA_BYTES/size_of(T)]T;
+    delta : [DATA_BYTES/size_of(T)]T;
+    res : [DATA_BYTES/size_of(T)]T;
+    length :: DATA_BYTES/size_of(T);
+}
 
-refi64 : []s64;
-resi64 : []s64;
+test: union {
+    _u8: Test_Data(u8);
+    _s8: Test_Data(s8);
+    
+    _u16: Test_Data(u16);
+    _s16: Test_Data(s16);
 
+    _u32: Test_Data(u32);
+    _s32: Test_Data(s32);
 
-ref32 : [2000000]float32;
-res32 : [2000000]float32;
+    _u64: Test_Data(u64);
+    _s64: Test_Data(s64);
 
-ref64 : [2000000]float64;
-res64 : [2000000]float64;
+    _f32: Test_Data(float32);
+    _f64: Test_Data(float64);
+
+    _Vec2f: Test_Data(Vec2f);
+    _Vec2d: Test_Data(Vec2d);
+    _Vec2s: Test_Data(Vec2s);
+    _Vec2u: Test_Data(Vec2u);
+
+    _Vec3f: Test_Data(Vec3f);
+    _Vec3d: Test_Data(Vec3d);
+    _Vec3s: Test_Data(Vec3s);
+    _Vec3u: Test_Data(Vec3u);
+
+    _Vec4f: Test_Data(Vec4f);
+    _Vec4d: Test_Data(Vec4d);
+    _Vec4s: Test_Data(Vec4s);
+    _Vec4u: Test_Data(Vec4u);
+
+    _Mat2f: Test_Data(Mat2f);
+    _Mat2d: Test_Data(Mat2d);
+
+    _Mat3f: Test_Data(Mat3f);
+    _Mat3d: Test_Data(Mat3d);
+
+    _Mat4f: Test_Data(Mat4f);
+    _Mat4d: Test_Data(Mat4d);
+}
 
 TestT :: #type ()->();
+CheckT :: #type ()->(bool, s64);
 
-do_test :: (label: string, $code: TestT, checkerror: = false) {
+error: float64 = 0;
+
+
+do_test :: (label: string, $code: TestT, $check: CheckT) {
     time: Apollo_Time;
     delta: s64;
+
+    error = 0;
 
     time = current_time_monotonic();
 
@@ -116,541 +87,365 @@ do_test :: (label: string, $code: TestT, checkerror: = false) {
     
     delta = to_milliseconds(current_time_monotonic() - time);
 
-    if checkerror
-        log(" - % error - %", label, error);
-    else  
+    has_error, error_index := check();
+    if !has_error
         log(" - % OK - %ms", label, delta);
+    else  
+        log_error(" - % - %ms error at index %, total error: %", label, delta, error_index, error);
 
 }
 
 cephes_test :: () {
         
 
-    print("\nFLOOR\n");
+    print("\nCEPHES TEST\n");
 
-    do_test("Math.floor32", () {
-        input: float32 = -10000;
+    simple_test("_f32", "floor", false);
+    simple_test("_f64", "floor", false);
 
-        for 0..2000000-1 {
-            input += PI32;
+    simple_test("_f32", "ceil", false);
+    simple_test("_f64", "ceil", false);
 
-            ref32[it] = Math.floor(input); 
-        }
-    });
+    simple_test("_f32", "mod", false, "frac");
+    simple_test("_f64", "mod", false, "frac");
 
-    do_test("floor32", () {
-        input: float32 = -10000;
+    simple_test("_f32", "sin", false);
+    simple_test("_f64", "sin", false);
 
-        for 0..2000000-1 {
-            input += PI32;
+    simple_test("_f32", "cos", false);
+    simple_test("_f64", "cos", false);
 
-            res32[it] = floor(input);
-        }
-    });
+    simple_test("_f32", "atan", false);
+    simple_test("_f64", "atan", false);
 
-    do_test("floor32 - correctness", () {
+    simple_test("_f32", "atan2", true);
+    simple_test("_f64", "atan2", true);
+}
 
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("floor32", ref32[it], res32[it], it);
-        }
-    }, true);
+simd_test :: () {
 
-    print("\n");
+    // cpu_info := get_cpu_info();
+    // has_avx     := check_feature(cpu_info.feature_leaves, x86_Feature_Flag.AVX);
+    // has_avx2    := check_feature(cpu_info.feature_leaves, x86_Feature_Flag.AVX2);
+    //
+    // log("\nSIMD:");
+    // log("CPU SIMD support - AVX: %, AVX2: %\n", has_avx, has_avx2);
+    //
+    // if !(has_avx && has_avx2) {
+    //     print("Required SIMD features (AVX+AVX2) not available; skipping SIMD tests.\n");
+    //     return;
+    // }
 
-    do_test("Math.floor64", () {
-        input: float64 = -10000;
+    simd_test("_s8", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_u8", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_s8", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_u8", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_s16", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_u16", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_s16", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_u16", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_s32", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_u32", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_f32", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_s32", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_u32", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_f32", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_f32", .MULT, 2, 4, 8, 16, 32);
+    simd_test("_f32", .DIV, 2, 4, 8, 16, 32);
+    simd_test("_s64", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_u64", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_f64", .ADD, 2, 4, 8, 16, 32);
+    simd_test("_s64", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_u64", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_f64", .SUB, 2, 4, 8, 16, 32);
+    simd_test("_f64", .MULT, 2, 4, 8, 16, 32);
+    simd_test("_f64", .DIV, 2, 4, 8, 16, 32);
+}
 
-        for 0..2000000-1 {
-            input += PI;
+vector_test :: () {
 
-            ref64[it] = Math.floor(input); 
-        }
-    });
+    // Vec2
+    vector_test("_Vec2f", "+");
+    vector_test("_Vec2f", "-");
+    vector_test("_Vec2f", "*");
+    vector_test("_Vec2f", "/");
 
-    do_test("floor64", () {
-        input: float64 = -10000;
+    vector_test("_Vec2d", "+");
+    vector_test("_Vec2d", "-");
+    vector_test("_Vec2d", "*");
+    vector_test("_Vec2d", "/");
 
-        for 0..2000000-1 {
-            input += PI;
+    vector_test("_Vec2s", "+");
+    vector_test("_Vec2s", "-");
+    vector_test("_Vec2s", "*");
+    vector_test("_Vec2s", "/");
 
-            res64[it] = floor(input);
-        }
-    });
+    vector_test("_Vec2u", "+");
+    vector_test("_Vec2u", "-");
+    vector_test("_Vec2u", "*");
+    vector_test("_Vec2u", "/");
 
-    do_test("floor64 - correctness", () {
+    // Vec3
+    vector_test("_Vec3f", "+");
+    vector_test("_Vec3f", "-");
+    vector_test("_Vec3f", "*");
+    vector_test("_Vec3f", "/");
 
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("floor64", ref64[it], res64[it], it);
-        }
-    }, true);
+    vector_test("_Vec3d", "+");
+    vector_test("_Vec3d", "-");
+    vector_test("_Vec3d", "*");
+    vector_test("_Vec3d", "/");
 
-    print("\nCEIL\n");
+    vector_test("_Vec3s", "+");
+    vector_test("_Vec3s", "-");
+    vector_test("_Vec3s", "*");
+    vector_test("_Vec3s", "/");
 
-   do_test("Math.ceil32", () {
-        input: float32 = -10000;
+    vector_test("_Vec3u", "+");
+    vector_test("_Vec3u", "-");
+    vector_test("_Vec3u", "*");
+    vector_test("_Vec3u", "/");
 
-        for 0..2000000-1 {
-            input += PI32;
+    // Vec4
+    vector_test("_Vec4f", "+");
+    vector_test("_Vec4f", "-");
+    vector_test("_Vec4f", "*");
+    vector_test("_Vec4f", "/");
 
-            ref32[it] = Math.ceil(input); 
-        }
-    });
+    vector_test("_Vec4d", "+");
+    vector_test("_Vec4d", "-");
+    vector_test("_Vec4d", "*");
+    vector_test("_Vec4d", "/");
 
-    do_test("ceil32", () {
-        input: float32 = -10000;
+    vector_test("_Vec4s", "+");
+    vector_test("_Vec4s", "-");
+    vector_test("_Vec4s", "*");
+    vector_test("_Vec4s", "/");
 
-        for 0..2000000-1 {
-            input += PI32;
+    vector_test("_Vec4u", "+");
+    vector_test("_Vec4u", "-");
+    vector_test("_Vec4u", "*");
+    vector_test("_Vec4u", "/");
 
-            res32[it] = ceil(input);
-        }
-    });
+}
 
-    do_test("ceil32 - correctness", () {
-
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("ceil32", ref32[it], res32[it], it);
-        }
-    }, true);
-
-    print("\n");
-
-    do_test("Math.ceil64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.ceil(input); 
-        }
-    });
-
-    do_test("ceil64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = ceil(input);
-        }
-    });
-
-    do_test("ceil64 - correctness", () {
-
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("ceil64", ref64[it], res64[it], it);
-        }
-    }, true);
-
-    print("\nSIN\n");
-
-    do_test("Math.sin32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            ref32[it] = Math.sin(input); 
-        }
-    });
-
-    do_test("sin32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            res32[it] = sin(input);
-        }
-    });
-
-    do_test("sin32 - correctness", () {
-        input: float32 = -10000; 
-        error = 0;
-        for 0..2000000-1 {
-            input += PI32;
-            assert_close("sin32", ref32[it], res32[it], input);
-        }
-    }, true);
-
-    print("\n"); 
-
-    do_test("Math.sin64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.sin(input); 
-        }
-    });
-
-    do_test("sin64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = sin(input);
-        }
-    });
-
-    do_test("sin64 - correctness", () {
-
-        error = 0;
-       
-        input: float64 = -10000; 
+vector_test :: ($target: string, $op: string, $test_proc: string = "") {
+    #insert,scope() -> string {
+        // Determine the component count from the target type
+        component_count := 3;
+        if contains(target, "Vec4") then component_count = 4;
+        if contains(target, "Vec2") then component_count = 2;
         
-        for 0..2000000-1 {
-            input += PI; 
-            assert_close("sin64", ref64[it], res64[it], input);
+        builder: String_Builder;
+        print_to_builder(*builder, "for 0..test.%1.length-1 {\n", target);
+        
+        // Generate ref initialization
+        print_to_builder(*builder, "        test.%1.ref[it] = .{", target);
+        for i: 0..component_count-1 {
+            if i > 0 then print_to_builder(*builder, ", ");
+            if i == 0 print_to_builder(*builder, "xx (it/2)");
+            else if i == 1 print_to_builder(*builder, "xx (it*2)");
+            else if i == 2 print_to_builder(*builder, "xx (it*PI)");
+           else print_to_builder(*builder, "xx (it*3.21098)"); 
         }
-
-    }, true);
-
-    print("\nMOD\n");
-
-    do_test("Math.mod32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            ref32[it] = Math.fmod_cycling(input, 1); 
+        print_to_builder(*builder, "};\n");
+        
+        // Generate res initialization  
+        print_to_builder(*builder, "        test.%1.res[it] = .{", target);
+        for i: 0..component_count-1 {
+            if i > 0 then print_to_builder(*builder, ", ");
+            if i == 0 print_to_builder(*builder, "xx (it/2)");
+            else if i == 1 print_to_builder(*builder, "xx (it*2)");
+            else if i == 2 print_to_builder(*builder, "xx (it*PI)");
+            else print_to_builder(*builder, "xx (it*3.21098)");
         }
-    });
-
-    do_test("mod32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            res32[it] = mod(input);
+        print_to_builder(*builder, "};\n");
+        
+        // Generate delta initialization
+        print_to_builder(*builder, "        test.%1.delta[it] = .{", target);
+        for i: 0..component_count-1 {
+            if i > 0 then print_to_builder(*builder, ", ");
+            if i == 0 print_to_builder(*builder, "xx (it*5+5)");
+            else if i == 1 print_to_builder(*builder, "xx (it/3.5+1)");
+            else if i == 2 print_to_builder(*builder, "xx (it*TAU+2)");
+            else print_to_builder(*builder, "xx (it/PI+1)");
         }
-    });
-
-    do_test("mod32 - correctness", () {
-        input: float32 = -10000; 
-        error = 0;
-        for 0..2000000-1 {
-            input += PI32;
-            assert_close("mod32", ref32[it], res32[it], input);
-        }
-    }, true);
-
-    print("\n"); 
-
-    do_test("Math.mod64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.fmod_cycling(input, 1); 
-        }
-    });
-
-    do_test("mod64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = mod(input);
-        }
-    });
-
-    do_test("mod64 - correctness", () {
-
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("mod64", ref64[it], res64[it], it);
-        }
-    }, true);
-
-
-    print("\nCOS\n");
-
-    do_test("Math.cos32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            ref32[it] = Math.cos(input); 
-        }
-    });
-
-    do_test("cos32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            res32[it] = cos(input);
-        }
-    });
-
-    do_test("cos32 - correctness", () {
-        input: float32 = -10000; 
-        error = 0;
-        for 0..2000000-1 {
-            input += PI32;
-            assert_close("cos32", ref32[it], res32[it], input);
-        }
-    }, true);
-
-    print("\n"); 
-
-    do_test("Math.cos64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.cos(input); 
-        }
-    });
-
-    do_test("cos64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = cos(input);
-        }
-    });
-
-    do_test("cos64 - correctness", () {
-
-        error = 0;
-        for 0..2000000-1 {
-            assert_close("cos64", ref64[it], res64[it], it);
-        }
-    }, true);
-
-    print("\nATAN\n");
-
-    do_test("Math.atan32", () {
-        input: float32 = -10000;
-
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            ref32[it] = Math.atan(input); 
-        }
-    });
-
-    do_test("atan32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            res32[it] = atan(input);
-        }
-    });
-
-    do_test("atan32 - correctness", () {
-
-        error = 0;
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32; 
-            assert_close("atan32", ref32[it], res32[it], input);
-        }
-    }, true);  
-
-    print("\n");  
-
-    do_test("Math.atan64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.atan(input); 
-        }
-    });
-
-    do_test("atan64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = atan(input);
-        }
-    });
-
-    do_test("atan64 - correctness", () {
-        error = 0;
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI; 
-            assert_close("atan64", ref64[it], res64[it], input);
-        }
-    }, true);
-
-    print("\nATAN2 (from the creators of ATAN and ATAN: Origin)\n");
-
-    do_test("Math.atan2_32", () {
-        input: float32 = -10000;
-
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            ref32[it] = Math.atan(input); 
-        }
-    });
-
-    do_test("atan2_32", () {
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32;
-
-            res32[it] = atan(input);
-        }
-    });
-
-    do_test("atan2_32 - correctness", () {
-
-        error = 0;
-        input: float32 = -10000;
-
-        for 0..2000000-1 {
-            input += PI32; 
-            assert_close("atan2_32", ref32[it], res32[it], input);
-        }
-    }, true);  
-
-    print("\n");  
-
-    do_test("Math.atan2_64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            ref64[it] = Math.atan2(input, -input); 
-        }
-    });
-
-    do_test("atan2_64", () {
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI;
-
-            res64[it] = atan2(input, -input); 
-        }
-    });
-
-    do_test("atan2_64 - correctness", () {
-
-        error = 0;
-        input: float64 = -10000;
-
-        for 0..2000000-1 {
-            input += PI; 
-            assert_close("atan2_64", ref64[it], res64[it], input);
-        }
-    }, true);
-
-    print("\nSIMD:\n"); 
+        print_to_builder(*builder, "};\n");
+        
+        print_to_builder(*builder, "    }");
+        return builder_to_string(*builder);
+    }
     
-    refi32 = NewArray(200000000, s32);
-    resi32 = NewArray(200000000, s32);
-
-    deltai32 = NewArray(200000000, s32);
-
-    for 0..200000000-1 {
-
-        refi32[it] = xx it;
-        resi32[it] = xx it;
-        deltai32[it] = xx it;
+    #insert -> string {
+        return sprint(#string CLEAR 
+        do_test("%1 %3 %2", () {
+            for 0..test.%2.length-1 {
+                    test.%2.ref[it] = test.%2.ref[it] %3 test.%2.delta[it];
+                    }
+            }, ()->(bool, s64){return false, -1;});
+        CLEAR, target, target, op); 
     }
 
-    
-    do_test("add_s32_default", () {
+    #if test_proc.count > 0 then #insert -> string {
+        return sprint(#string CLEAR 
+        do_test("%1%2", () {
+            for 0..test.%2.length-1 {
+                    test.%2.res[it] = %3(test.%2.res[it], test.%2.delta[it]);
+                    }
+            }, ()->(bool, s64){
+                last_error := -1;
+                for 0..test.%2.length-1 {
+                    if test.%2.ref[it] != test.%2.res[it] { 
+                        error += cast(float64) length(test.%2.ref[it] - test.%2.res[it]);
+                        last_error = it;
+                    }
+                }
+                return last_error >= 0, last_error;
+            });
+        CLEAR, test_proc, target, test_proc);
+        log("\n");
+    }
+}
 
-        for 0..200000000-1 {
-            refi32[it] = refi32[it] + deltai32[it];
+simple_test :: ($target: string, $op: string, $needs_delta: bool, $default: string = "") #modify {
+    if default == "" then default = op;
+    return true;
+} {
+
+
+    #insert -> string {return sprint(#string CLEAR 
+    for 0..test.%1.length-1 {
+        test.%1.ref[it] = xx (1+(it+1) * 1.23456789);
+        test.%1.res[it] = xx (1+(it+1) * 1.23456789);
+        test.%1.delta[it] = xx (1+(it+2) * 1.23456789);
+    }
+    CLEAR, target); }
+     
+        #insert -> string {
+            return sprint(#string CLEAR 
+            do_test("%1%2_default", () {
+                for 0..test.%2.length-1 {
+                        test.%2.ref[it] = Math.%1(test.%2.ref[it]%3);
+                        }
+                }, ()->(bool, s64){return false, -1;});
+            CLEAR, default, target, ifx needs_delta then sprint(", test.%.delta[it]", target) else ""); 
         }
-    });
 
-    do_test("add_s32_4", () {
+    #insert -> string {
+        builder: String_Builder;
+            print_to_builder(*builder, #string TEST
 
-        for 0..50000000-1 {
-            add_s32_4(*resi32[it*4], *deltai32[it*4]);
+    do_test("%1%2", () {
+    for 0..test.%2.length-1 {
+            test.%2.res[it] = %1(test.%2.res[it]%4);
         } 
-    });
+    }, ()->(bool, s64){
+            last_error := -1;
 
-    do_test("add_s32_4 - correctness", () {
+            for 0..test.%2.length-1 {
+               if test.%2.ref[it] != test.%2.res[it] { 
+                    error += cast(float64) (test.%2.ref[it] - test.%2.res[it]);
+                    last_error = it;
+                }
+            }
 
-        error = 0;
+            if last_error >=0 {
+                for offset: -2..2 {
+                    if last_error+offset < 0 || last_error+offset >= test.%2.length then continue;
+                    log("\t%3%3: ref %3, res %3", ifx offset == 0 then ">>" else "  ", last_error+offset, test.%2.ref[last_error+offset], test.%2.res[last_error+offset]);
+                }
+            }
 
-        for 0..200000000-1 {
-            assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
-        }
-    }, true); 
-   
-    for 0..200000000-1 {
-        resi32[it] = xx it;
+            return last_error >= 0, last_error;
+        });
+
+    for 0..test.%2.length-1 {
+        test.%2.res[it] = xx (it+1);
+    }
+            TEST, op, target, "%", ifx needs_delta then sprint(", test.%.delta[it]", target));
+
+        return builder_to_string(*builder);
     }
 
-    do_test("add_s32_8", () {
+    log("\n");
+}
+simd_test :: ($target: string, $op: Simd_Op, $portions: ..s64) {
 
-        for 0..25000000-1 {
-            add_s32_8(*resi32[it*8], *deltai32[it*8]);
+    #insert -> string {return sprint(#string CLEAR 
+    for 0..test.%1.length-1 {
+        test.%1.ref[it] = reinterp(type_of(test.%1.ref[it]), (it+1));
+        test.%1.res[it] = reinterp(type_of(test.%1.ref[it]), (it+1));
+        test.%1.delta[it] = reinterp(type_of(test.%1.ref[it]), (it+2)); 
+    }
+    CLEAR, target); }
+
+    #insert -> string {
+        oper: string;
+
+
+        if op == {
+        case .ADD; oper = "+";
+        case .SUB; oper = "-";
+        case .MULT; oper = "*";
+        case .DIV; oper = "/";
+
+        case .AND; oper = "&";
+        case .OR; oper = "|";
+        case .XOR; oper = "^";
+        case .NOT; oper = "~";
         } 
-    });
 
-    do_test("add_s32_8 - correctness", () {
+        return sprint(#string CLEAR 
+        do_test("%1%2_default", () {
+            for 0..test.%2.length-1 {
+                    test.%2.ref[it] = test.%2.ref[it] %3 test.%2.delta[it];
+                    }
+            }, ()->(bool, s64){return false, -1;});
+        CLEAR, to_lower_copy(sprint("%",op)), target, oper); 
+    }
+    #insert -> string {
+        builder: String_Builder;
 
-        error = 0;
+        for portion: portions {
+            print_to_builder(*builder, #string TEST
 
-        for 0..200000000-1 {
-            assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
+    do_test("%1%2x%3", () {
+    for 0..test.%2.length/%3-1 {
+            simd_%1(*test.%2.res[it*%3], *test.%2.delta[it*%3], %3);
+        } 
+    }, ()->(bool, s64){
+            last_error := -1;
+            for 0..test.%2.length-1 {
+                if abs(cast(float64)(test.%2.ref[it] - test.%2.res[it])) > epsilon(float64) {
+                    for offset: -2..2 {
+                        if it+offset < 0 then continue;
+                        log("\t%4%4: ref %4, res %4", ifx offset == 0 then ">>" else "  ", it+offset, test.%2.ref[it+offset], test.%2.res[it+offset]);
+                    }
+                    last_error = it;
+                }
+            }
+            return last_error >= 0, last_error;
+        });
+
+    for 0..test.%2.length-1 {
+        test.%2.res[it] = reinterp(type_of(test.%2.ref[it]), (it+1)); 
+    }
+            TEST, to_lower_copy(sprint("%",op)), target, portion, "%" );
+
         }
-    }, true);
 
-    for 0..200000000-1 {
-        resi32[it] = xx it;
+        return builder_to_string(*builder);
     }
 
-    do_test("add_s32_16", () {
-
-        for 0..12500000-1 {
-            add_s32_16(*resi32[it*16], *deltai32[it*16]);
-        } 
-    });
-
-    do_test("add_s32_16 - correctness", () {
-
-        error = 0;
-
-        for 0..200000000-1 {
-            assert(refi32[it] == resi32[it], "SIMD error, #% % - %", it,  refi32[it], resi32[it]);     
-        }
-    }, true);
+    log("\n");
 }
 
 math_test :: () {
     // make_non_binary_workspace();
     // math_test();
     // log("math_test OK\n");
-    cephes_test();
-    log("t_test OK\n");
+    vector_test();
+    // cephes_test();
+    simd_test();
+    // log("t_test OK\n");
 }

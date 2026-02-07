@@ -5,7 +5,8 @@
 #load "types/euler.jai";
 #load "transform.jai";
 
-#load "simd/add.jai";
+#load "simd/common.jai";
+#load "simd/vector.jai";
 
 #import "Basic";
 #import "Jay_Utils";

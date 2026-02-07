@@ -13,12 +13,12 @@ Matrix :: struct(COL: u8, ROW: u8, T: Type) {
     #insert -> string {
         builder: String_Builder;
         print_to_builder(*builder, "//\tMatrix(%1,%2,%3)\n", COL, ROW, T);
-        for h: 0..ROW-1 {
+        for h: 1..ROW {
             print_to_builder(*builder, "\t");
-            for w: 0..COL-1 {
+            for w: 1..COL {
                 print_to_builder(*builder, "_%1%2", h, w);
 
-                if w+1<COL {
+                if w<COL {
                     print_to_builder(*builder, ", ");
                 }
             }
@@ -28,8 +28,8 @@ Matrix :: struct(COL: u8, ROW: u8, T: Type) {
         return builder_to_string(*builder);
     }
 
-    #overlay (_00) values: [COL*ROW] T = ---;
-    #overlay (_00) cells: [ROW][COL] T = ---;
+    #overlay (_11) values: [COL*ROW] T = ---;
+    #overlay (_11) cells: [ROW][COL] T = ---;
 
     identity :: () -> Matrix(COL,ROW,T) { 
         return #run -> Matrix(COL, ROW, T) {

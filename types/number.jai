@@ -189,34 +189,34 @@ mantissa_offset :: inline ($T: Type) -> s32 #modify {
 }
 ceil :: inline (x: float32) -> float32 {
     #if CPU == .X64 {
-        ret := *x;
-        #asm SSE { roundss r:, [ret], 2; movss [ret], r; }
-        return ret.*;
+        ret: float32; 
+        #asm SSE { roundss r:, [*x], 2; movss [*ret], r; }
+        return ret;
     } 
 }
 
 ceil :: inline (x: float64) -> float64 {
     #if CPU == .X64 {
-        ret := *x;
-        #asm SSE { roundsd r:, [ret], 2; movsd [ret], r; }
-        return ret.*;
+        ret: float64; 
+        #asm SSE { roundsd r:, [*x], 2; movsd [*ret], r; }
+        return ret;
     } 
 }
 
 
 floor :: inline (x: float32) -> float32 {
     #if CPU == .X64 {
-        ret := *x;
-        #asm SSE { roundss r:, [ret], 1; movss [ret], r; }
-        return ret.*;
+        ret: float32;
+        #asm SSE { roundss r:, [*x], 1; movss [*ret], r; }
+        return ret;
     } 
 }
 
 floor :: inline (x: float64) -> float64 {
     #if CPU == .X64 {
-        ret := *x;
-        #asm SSE { roundsd r:, [ret], 1; movsd [ret], r; }
-        return ret.*;
+       ret: float64; 
+        #asm SSE { roundsd r:, [*x], 1; movsd [*ret], r; }
+        return ret;
     } 
 }
 
