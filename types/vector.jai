@@ -1,24 +1,35 @@
-Vec2f :: Vector(2, float32, DEFAULT_AXES);
-Vec3f :: Vector(3, float32, DEFAULT_AXES);
-Vec4f :: Vector(4, float32, DEFAULT_AXES);
-
 Vec2 :: Vector(2, float64, DEFAULT_AXES);
 Vec3 :: Vector(3, float64, DEFAULT_AXES);
 Vec4 :: Vector(4, float64, DEFAULT_AXES);
 
-Vec2s :: Vector(2, s32, DEFAULT_AXES);
-Vec3s :: Vector(3, s32, DEFAULT_AXES);
-Vec4s :: Vector(4, s32, DEFAULT_AXES);
+Vec2f :: Vector(2, float32, DEFAULT_AXES);
+Vec3f :: Vector(3, float32, DEFAULT_AXES);
+Vec4f :: Vector(4, float32, DEFAULT_AXES);
 
-Vec2u :: Vector(2, u32, DEFAULT_AXES);
-Vec3u :: Vector(3, u32, DEFAULT_AXES);
-Vec4u :: Vector(4, u32, DEFAULT_AXES);
+Point2 :: Vector(2, s64, DEFAULT_AXES);
+Point3 :: Vector(3, s64, DEFAULT_AXES);
+Point4 :: Vector(4, s64, DEFAULT_AXES);
+
+Point2s :: Vector(2, s32, DEFAULT_AXES);
+Point3s :: Vector(3, s32, DEFAULT_AXES);
+Point4s :: Vector(4, s32, DEFAULT_AXES);
 
 DEFAULT_AXES :: string.["x", "y", "z", "w"]; 
 
-Vectors2 :: Type.[Vec2d, Vec2f, Vec2s, Vec2u];
-Vectors3 :: Type.[Vec3d, Vec3f, Vec3s, Vec3u];
-Vectors4 :: Type.[Vec4d, Vec4f, Vec4s, Vec4u];
+Vectors2 :: Type.[Vec2, Vec2f, Point2, Point2s];
+Vectors3 :: Type.[Vec3, Vec3f, Point3, Point3s];
+Vectors4 :: Type.[Vec4, Vec4f, Point4, Point4s];
+
+IntVectors2 :: Type.[Point2, Point2s];
+IntVectors3 :: Type.[Point3, Point3s];
+IntVectors4 :: Type.[Point4, Point4s];
+
+FloatVectors2 :: Type.[Vec2, Vec2f];
+FloatVectors3 :: Type.[Vec3, Vec3f];
+FloatVectors4 :: Type.[Vec4, Vec4f];
+
+IntVectors :: Type.[Point2, Point2s, Point3, Point3s, Point4, Point4s];
+FloatVectors :: Type.[Vec2, Vec2f, Vec3, Vec3f, Vec4, Vec4f];
 
 #import "String";
 
@@ -162,127 +173,7 @@ operator - :: inline (a: Vec3f, b: Vec3f) -> Vec3f  #no_abc #no_aoc {
     return result;
 }
 
-operator - :: inline (a: Vec3u, b: Vec3u) -> Vec3u  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator - :: inline (a: Vec3s, b: Vec3s) -> Vec3s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator - :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
 operator * :: inline (a: Vec3f, b: Vec3f) -> Vec3f  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec2u, b: Vec2u) -> Vec2u #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec2s, b: Vec2s) -> Vec2s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec3u, b: Vec3u) -> Vec3u #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec3s, b: Vec3s) -> Vec3s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec4u, b: Vec4u) -> Vec4u  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec4s, b: Vec4s) -> Vec4s  #no_abc #no_aoc {
     result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
@@ -306,114 +197,6 @@ operator + :: inline (a: Vec3f, b: Vec3f) -> Vec3f  #no_abc #no_aoc {
     return result;
 }
 
-operator + :: inline (a: Vec3u, b: Vec3u) -> Vec3u  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Vec3s, b: Vec3s) -> Vec3s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec2u, b: Vec2u) -> Vec2u #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec2s, b: Vec2s) -> Vec2s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec3u, b: Vec3u) -> Vec3u #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec3s, b: Vec3s) -> Vec3s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec4u, b: Vec4u) -> Vec4u  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec4s, b: Vec4s) -> Vec4s  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
 operator / :: inline (a: Vec3f, b: Vec3f) -> Vec3f  #no_abc #no_aoc {
     result: type_of(a) = ---;
     #insert -> string {
@@ -426,12 +209,120 @@ operator / :: inline (a: Vec3f, b: Vec3f) -> Vec3f  #no_abc #no_aoc {
     return result;
 }
 
-operator / :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
+operator - :: inline (a: Point3s, b: Point3s) -> Point3s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator + :: inline (a: Point3s, b: Point3s) -> Point3s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator - :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator * :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator + :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator / :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     result: type_of(a) = ---;
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
             print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator - :: inline (a: Point2s, b: Point2s) -> Point2s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator + :: inline (a: Point2s, b: Point2s) -> Point2s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator - :: inline (a: Point4s, b: Point4s) -> Point4s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator + :: inline (a: Point4s, b: Point4s) -> Point4s  #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -455,12 +346,36 @@ operator - :: inline (a: Vector, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
    return inline simd_vec(a, b, .SUB);    
 }
 
-operator * :: inline (a: $T/Vector, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
-   return inline simd_vec(a, b, .MULT);    
+operator * :: inline (a: $T/FloatVectors, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
+    return inline simd_vec(a, b, .MULT);    
 }
 
-operator / :: inline (a: Vector, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
+operator * :: inline (a: $T/IntVectors, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
+
+operator / :: inline (a: $T/FloatVectors, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
    return inline simd_vec(a, b, .DIV);    
+}
+
+operator / :: inline (a: $T/IntVectors, b: type_of(a)) -> type_of(a) #no_abc #no_aoc {
+    result: type_of(a) = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..a.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;  
 }
 
 

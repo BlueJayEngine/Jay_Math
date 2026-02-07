@@ -45,28 +45,31 @@ test: union {
     _f64: Test_Data(float64);
 
     _Vec2f: Test_Data(Vec2f);
-    _Vec2d: Test_Data(Vec2d);
-    _Vec2s: Test_Data(Vec2s);
-    _Vec2u: Test_Data(Vec2u);
+    _Vec2: Test_Data(Vec2);
+    _Point2: Test_Data(Point2);
+    _Point2s: Test_Data(Point2s);
 
     _Vec3f: Test_Data(Vec3f);
-    _Vec3d: Test_Data(Vec3d);
-    _Vec3s: Test_Data(Vec3s);
-    _Vec3u: Test_Data(Vec3u);
+    _Vec3: Test_Data(Vec3);
+    _Point3: Test_Data(Point3);
+    _Point3s: Test_Data(Point3s);
 
     _Vec4f: Test_Data(Vec4f);
-    _Vec4d: Test_Data(Vec4d);
-    _Vec4s: Test_Data(Vec4s);
-    _Vec4u: Test_Data(Vec4u);
+    _Vec4: Test_Data(Vec4);
+    _Point4: Test_Data(Point4);
+    _Point4s: Test_Data(Point4s);
 
     _Mat2f: Test_Data(Mat2f);
-    _Mat2d: Test_Data(Mat2d);
+    _Mat2: Test_Data(Mat2);
 
     _Mat3f: Test_Data(Mat3f);
-    _Mat3d: Test_Data(Mat3d);
+    _Mat3: Test_Data(Mat3);
+
+    _Mat3x4f: Test_Data(Mat3f);
+    _Mat3x4: Test_Data(Mat3);
 
     _Mat4f: Test_Data(Mat4f);
-    _Mat4d: Test_Data(Mat4d);
+    _Mat4: Test_Data(Mat4);
 }
 
 TestT :: #type ()->();
@@ -165,77 +168,130 @@ simd_test :: () {
 vector_test :: () {
 
     // Vec2
-    vector_test("_Vec2f", "+");
-    vector_test("_Vec2f", "-");
-    vector_test("_Vec2f", "*");
-    vector_test("_Vec2f", "/");
+    operator_test("_Vec2f", "+");
+    operator_test("_Vec2f", "-");
+    operator_test("_Vec2f", "*");
+    operator_test("_Vec2f", "/");
 
-    vector_test("_Vec2d", "+");
-    vector_test("_Vec2d", "-");
-    vector_test("_Vec2d", "*");
-    vector_test("_Vec2d", "/");
+    operator_test("_Vec2", "+");
+    operator_test("_Vec2", "-");
+    operator_test("_Vec2", "*");
+    operator_test("_Vec2", "/");
 
-    vector_test("_Vec2s", "+");
-    vector_test("_Vec2s", "-");
-    vector_test("_Vec2s", "*");
-    vector_test("_Vec2s", "/");
+    operator_test("_Point2", "+");
+    operator_test("_Point2", "-");
+    operator_test("_Point2", "*");
+    operator_test("_Point2", "/");
 
-    vector_test("_Vec2u", "+");
-    vector_test("_Vec2u", "-");
-    vector_test("_Vec2u", "*");
-    vector_test("_Vec2u", "/");
+    operator_test("_Point2s", "+");
+    operator_test("_Point2s", "-");
+    operator_test("_Point2s", "*");
+    operator_test("_Point2s", "/");
 
     // Vec3
-    vector_test("_Vec3f", "+");
-    vector_test("_Vec3f", "-");
-    vector_test("_Vec3f", "*");
-    vector_test("_Vec3f", "/");
+    operator_test("_Vec3f", "+");
+    operator_test("_Vec3f", "-");
+    operator_test("_Vec3f", "*");
+    operator_test("_Vec3f", "/");
 
-    vector_test("_Vec3d", "+");
-    vector_test("_Vec3d", "-");
-    vector_test("_Vec3d", "*");
-    vector_test("_Vec3d", "/");
+    operator_test("_Vec3", "+");
+    operator_test("_Vec3", "-");
+    operator_test("_Vec3", "*");
+    operator_test("_Vec3", "/");
 
-    vector_test("_Vec3s", "+");
-    vector_test("_Vec3s", "-");
-    vector_test("_Vec3s", "*");
-    vector_test("_Vec3s", "/");
+    operator_test("_Point3", "+");
+    operator_test("_Point3", "-");
+    operator_test("_Point3", "*");
+    operator_test("_Point3", "/");
 
-    vector_test("_Vec3u", "+");
-    vector_test("_Vec3u", "-");
-    vector_test("_Vec3u", "*");
-    vector_test("_Vec3u", "/");
+    operator_test("_Point3s", "+");
+    operator_test("_Point3s", "-");
+    operator_test("_Point3s", "*");
+    operator_test("_Point3s", "/");
 
     // Vec4
-    vector_test("_Vec4f", "+");
-    vector_test("_Vec4f", "-");
-    vector_test("_Vec4f", "*");
-    vector_test("_Vec4f", "/");
+    operator_test("_Vec4f", "+");
+    operator_test("_Vec4f", "-");
+    operator_test("_Vec4f", "*");
+    operator_test("_Vec4f", "/");
 
-    vector_test("_Vec4d", "+");
-    vector_test("_Vec4d", "-");
-    vector_test("_Vec4d", "*");
-    vector_test("_Vec4d", "/");
+    operator_test("_Vec4", "+");
+    operator_test("_Vec4", "-");
+    operator_test("_Vec4", "*");
+    operator_test("_Vec4", "/");
 
-    vector_test("_Vec4s", "+");
-    vector_test("_Vec4s", "-");
-    vector_test("_Vec4s", "*");
-    vector_test("_Vec4s", "/");
+    operator_test("_Point4", "+");
+    operator_test("_Point4", "-");
+    operator_test("_Point4", "*");
+    operator_test("_Point4", "/");
 
-    vector_test("_Vec4u", "+");
-    vector_test("_Vec4u", "-");
-    vector_test("_Vec4u", "*");
-    vector_test("_Vec4u", "/");
+    operator_test("_Point4s", "+");
+    operator_test("_Point4s", "-");
+    operator_test("_Point4s", "*");
+    operator_test("_Point4s", "/");
 
 }
 
-vector_test :: ($target: string, $op: string, $test_proc: string = "") {
-    #insert,scope() -> string {
-        // Determine the component count from the target type
-        component_count := 3;
-        if contains(target, "Vec4") then component_count = 4;
-        if contains(target, "Vec2") then component_count = 2;
-        
+matrix_test :: () {
+
+    // Mat2
+    operator_test("_Mat2f", "+");
+    operator_test("_Mat2f", "-");
+    operator_test("_Mat2f", "*");
+    operator_test("_Mat2f", "/");
+
+    operator_test("_Mat2", "+");
+    operator_test("_Mat2", "-");
+    operator_test("_Mat2", "*");
+    operator_test("_Mat2", "/");
+
+    // Mat3
+    operator_test("_Mat3f", "+");
+    operator_test("_Mat3f", "-");
+    operator_test("_Mat3f", "*");
+    operator_test("_Mat3f", "/");
+
+    operator_test("_Mat3", "+");
+    operator_test("_Mat3", "-");
+    operator_test("_Mat3", "*");
+    operator_test("_Mat3", "/");
+
+    // Mat3x4
+    operator_test("_Mat3x4f", "+");
+    operator_test("_Mat3x4f", "-");
+    operator_test("_Mat3x4f", "*");
+    operator_test("_Mat3x4f", "/");
+
+    operator_test("_Mat3x4", "+");
+    operator_test("_Mat3x4", "-");
+    operator_test("_Mat3x4", "*");
+    operator_test("_Mat3x4", "/");
+
+    // Mat4
+    operator_test("_Mat4f", "+");
+    operator_test("_Mat4f", "-");
+    operator_test("_Mat4f", "*");
+    operator_test("_Mat4f", "/");
+
+    operator_test("_Mat4", "+");
+    operator_test("_Mat4", "-");
+    operator_test("_Mat4", "*");
+    operator_test("_Mat4", "/");
+
+}
+
+hash :: (i: s64) -> s64 {
+    x := i;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return x;
+}
+
+operator_test :: ($target: string, $op: string, $test_proc: string = "") {
+    component_count :: #insert #run sprint("type_of(test.%).T.N;", target);
+
+    #insert -> string {
         builder: String_Builder;
         print_to_builder(*builder, "for 0..test.%1.length-1 {\n", target);
         
@@ -243,10 +299,7 @@ vector_test :: ($target: string, $op: string, $test_proc: string = "") {
         print_to_builder(*builder, "        test.%1.ref[it] = .{", target);
         for i: 0..component_count-1 {
             if i > 0 then print_to_builder(*builder, ", ");
-            if i == 0 print_to_builder(*builder, "xx (it/2)");
-            else if i == 1 print_to_builder(*builder, "xx (it*2)");
-            else if i == 2 print_to_builder(*builder, "xx (it*PI)");
-           else print_to_builder(*builder, "xx (it*3.21098)"); 
+            print_to_builder(*builder, "xx hash(it)", i);
         }
         print_to_builder(*builder, "};\n");
         
@@ -254,10 +307,7 @@ vector_test :: ($target: string, $op: string, $test_proc: string = "") {
         print_to_builder(*builder, "        test.%1.res[it] = .{", target);
         for i: 0..component_count-1 {
             if i > 0 then print_to_builder(*builder, ", ");
-            if i == 0 print_to_builder(*builder, "xx (it/2)");
-            else if i == 1 print_to_builder(*builder, "xx (it*2)");
-            else if i == 2 print_to_builder(*builder, "xx (it*PI)");
-            else print_to_builder(*builder, "xx (it*3.21098)");
+            print_to_builder(*builder, "xx hash(it)", i);
         }
         print_to_builder(*builder, "};\n");
         
@@ -265,10 +315,7 @@ vector_test :: ($target: string, $op: string, $test_proc: string = "") {
         print_to_builder(*builder, "        test.%1.delta[it] = .{", target);
         for i: 0..component_count-1 {
             if i > 0 then print_to_builder(*builder, ", ");
-            if i == 0 print_to_builder(*builder, "xx (it*5+5)");
-            else if i == 1 print_to_builder(*builder, "xx (it/3.5+1)");
-            else if i == 2 print_to_builder(*builder, "xx (it*TAU+2)");
-            else print_to_builder(*builder, "xx (it/PI+1)");
+            print_to_builder(*builder, "xx hash(it)", i);
         }
         print_to_builder(*builder, "};\n");
         
@@ -445,7 +492,8 @@ math_test :: () {
     // math_test();
     // log("math_test OK\n");
     vector_test();
-    // cephes_test();
+matrix_test();
+    cephes_test();
     simd_test();
     // log("t_test OK\n");
 }
