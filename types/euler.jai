@@ -12,17 +12,17 @@ to_matrix :: (r: Rot) -> Mat3 {
 
     result := Mat3.identity();
     
-    result._00 = cy * cr + sy * sp * sr;
-    result._10 = cr * sy * sp - sr * cy;
-    result._20 = cp * sy;
+    result.cells[0][0] = cy * cr + sy * sp * sr;
+    result.cells[1][0] = cr * sy * sp - sr * cy;
+    result.cells[2][0] = cp * sy;
 
-    result._01 = cp * sr;
-    result._11 = cr * cp;
-    result._20 = -sp;
+    result.cells[0][1] = cp * sr;
+    result.cells[1][1] = cr * cp;
+    result.cells[2][1] = -sp;
 
-    result._02 = sr * cy * sp - sy * cr;
-    result._12 = sy * sr + cr * cy * sp;
-    result._22 = cp * cy;
+    result.cells[0][2] = sr * cy * sp - sy * cr;
+    result.cells[1][2] = sy * sr + cr * cy * sp;
+    result.cells[2][2] = cp * cy;
 
     return result;
 }

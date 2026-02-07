@@ -260,12 +260,10 @@ matrix_test :: () {
     operator_test("_Mat3x4f", "+");
     operator_test("_Mat3x4f", "-");
     operator_test("_Mat3x4f", "*");
-    operator_test("_Mat3x4f", "/");
 
     operator_test("_Mat3x4", "+");
     operator_test("_Mat3x4", "-");
     operator_test("_Mat3x4", "*");
-    operator_test("_Mat3x4", "/");
 
     // Mat4
     operator_test("_Mat4f", "+");
@@ -280,12 +278,24 @@ matrix_test :: () {
 
 }
 
-hash :: (i: s64) -> s64 {
+hash :: (i: s64, $T: Type = float64) -> T {
     x := i;
     x = ((x >> 16) ^ x) * 0x45d9f3b;
     x = ((x >> 16) ^ x) * 0x45d9f3b;
     x = (x >> 16) ^ x;
-    return x;
+
+    info := type_info(T);
+    if info.type == .FLOAT {
+        result : T = xx (x % 500);
+        if result == 0 then result = 1;
+        return result;
+    }
+
+    max_val : s64 = (1 << (info.runtime_size * 8 - 1)) - 1;
+    limit := ifx max_val >= 500 then max_val / 500 else max_val;
+    result := x % limit;
+    if result == 0 then result = 1;
+    return xx result;
 }
 
 operator_test :: ($target: string, $op: string, $test_proc: string = "") {
@@ -293,13 +303,14 @@ operator_test :: ($target: string, $op: string, $test_proc: string = "") {
 
     #insert -> string {
         builder: String_Builder;
+        scalar_type := sprint("type_of(test.%).T.T", target);
         print_to_builder(*builder, "for 0..test.%1.length-1 {\n", target);
         
         // Generate ref initialization
         print_to_builder(*builder, "        test.%1.ref[it] = .{", target);
         for i: 0..component_count-1 {
             if i > 0 then print_to_builder(*builder, ", ");
-            print_to_builder(*builder, "xx hash(it)", i);
+            print_to_builder(*builder, "hash(it * % + %, %)", component_count, i, scalar_type);
         }
         print_to_builder(*builder, "};\n");
         
@@ -307,17 +318,27 @@ operator_test :: ($target: string, $op: string, $test_proc: string = "") {
         print_to_builder(*builder, "        test.%1.res[it] = .{", target);
         for i: 0..component_count-1 {
             if i > 0 then print_to_builder(*builder, ", ");
-            print_to_builder(*builder, "xx hash(it)", i);
+            print_to_builder(*builder, "hash(it * % + %, %)", component_count, i, scalar_type);
         }
         print_to_builder(*builder, "};\n");
         
-        // Generate delta initialization
-        print_to_builder(*builder, "        test.%1.delta[it] = .{", target);
-        for i: 0..component_count-1 {
-            if i > 0 then print_to_builder(*builder, ", ");
-            print_to_builder(*builder, "xx hash(it)", i);
+        // Generate delta initialization (offset input to avoid hash(0)==0 div-by-zero)
+        is_matrix := begins_with(target, "_Mat");
+        is_div := op == "/";
+        if is_matrix && is_div {
+            // Generate diagonally dominant matrices to guarantee invertibility
+            // Start from identity, add small perturbation to keep it well-conditioned
+            print_to_builder(*builder, "        test.%1.delta[it] = type_of(test.%1.delta[it]).identity();\n", target);
+            print_to_builder(*builder, "        for k: 0..type_of(test.%1.delta[it]).N-1\n", target);
+            print_to_builder(*builder, "            test.%1.delta[it].values[k] += hash(cast(s64) ((it + 1) * type_of(test.%1.delta[it]).N + k), %2) * 0.0001;\n", target, scalar_type);
+        } else {
+            print_to_builder(*builder, "        test.%1.delta[it] = .{", target);
+            for i: 0..component_count-1 {
+                if i > 0 then print_to_builder(*builder, ", ");
+                print_to_builder(*builder, "hash((it + 1) * % + %, %)", component_count, i, scalar_type);
+            }
+            print_to_builder(*builder, "};\n");
         }
-        print_to_builder(*builder, "};\n");
         
         print_to_builder(*builder, "    }");
         return builder_to_string(*builder);
@@ -487,12 +508,127 @@ simd_test :: ($target: string, $op: Simd_Op, $portions: ..s64) {
     log("\n");
 }
 
+assert_mat :: (label: string, a: $T/Matrix, b: T, tol: float64 = 0.0001) {
+    for i: 0..T.N-1 {
+        delta := abs(cast(float64) a.values[i] - cast(float64) b.values[i]);
+        if delta > tol {
+            log_error("% FAILED at [%]: got %, expected %", label, i, a.values[i], b.values[i]);
+            assert(false, "Matrix correctness test failed");
+        }
+    }
+    log(" - % OK", label);
+}
+
+matrix_correctness_test :: () {
+    print("\nMATRIX CORRECTNESS\n");
+
+    // ===== 2x2 tests =====
+    a2 : Mat2 = .{1, 2, 3, 4};
+    b2 : Mat2 = .{5, 6, 7, 8};
+
+    // Addition (element-wise)
+    assert_mat("Mat2 A + B", a2 + b2, Mat2.{6, 8, 10, 12});
+
+    // Subtraction (element-wise)
+    assert_mat("Mat2 A - B", a2 - b2, Mat2.{-4, -4, -4, -4});
+
+    // Multiplication (matrix multiply)
+    // [1,2]*[5,6] = [1*5+2*7, 1*6+2*8] = [19, 22]
+    // [3,4] [7,8]   [3*5+4*7, 3*6+4*8]   [43, 50]
+    assert_mat("Mat2 A * B", a2 * b2, Mat2.{19, 22, 43, 50});
+
+    // Division (A * inverse(B))
+    // inv(B) = 1/(5*8-6*7) * [8,-6; -7,5] = [-4, 3; 3.5, -2.5]
+    // A/B = [1*(-4)+2*3.5, 1*3+2*(-2.5); 3*(-4)+4*3.5, 3*3+4*(-2.5)] = [3, -2; 2, -1]
+    assert_mat("Mat2 A / B", a2 / b2, Mat2.{3, -2, 2, -1});
+
+    // Inverse: A * inverse(A) = identity
+    assert_mat("Mat2 A * inv(A) = I", a2 * inverse(a2), Mat2.identity());
+
+    // Identity: A * I = A
+    assert_mat("Mat2 A * I = A", a2 * Mat2.identity(), a2);
+
+    // Identity: I * A = A
+    assert_mat("Mat2 I * A = A", Mat2.identity() * a2, a2);
+
+
+    // ===== 3x3 tests =====
+    a3 : Mat3 = .{1, 2, 3, 4, 5, 6, 7, 8, 10}; // 10 not 9 to avoid singularity
+    e3 : Mat3 = .{2, 1, 0, 0, 3, 1, 1, 0, 2};
+
+    // Inverse: A * inverse(A) = identity
+    assert_mat("Mat3 A * inv(A) = I", a3 * inverse(a3), Mat3.identity());
+
+    // Identity properties
+    assert_mat("Mat3 A * I = A", a3 * Mat3.identity(), a3);
+    assert_mat("Mat3 I * A = A", Mat3.identity() * a3, a3);
+
+    // Division: A / E = A * inv(E)
+    // Hand-computed from numpy
+    expected_div3 : Mat3 = .{
+        -0.07692307692307693, 0.6923076923076923, 1.1538461538461537,
+         0.8461538461538461,  1.3846153846153846, 2.307692307692308,
+         1.5384615384615383,  2.153846153846154,  3.923076923076923
+    };
+    assert_mat("Mat3 A / E", a3 / e3, expected_div3);
+
+    // Addition
+    assert_mat("Mat3 A + E", a3 + e3, Mat3.{3, 3, 3, 4, 8, 7, 8, 8, 12});
+
+    // Subtraction
+    assert_mat("Mat3 A - E", a3 - e3, Mat3.{-1, 1, 3, 4, 2, 5, 6, 8, 8});
+
+
+    // ===== 4x4 tests =====
+    a4 : Mat4 = .{4, 1, 0, 1, 1, 3, 1, 0, 0, 1, 4, 1, 1, 0, 1, 3}; // symmetric, well-conditioned
+    f4 : Mat4 = .{1, 0, 2, 1, 0, 1, 1, 0, 2, 1, 1, 0, 1, 0, 0, 1};
+
+    // Inverse: A * inverse(A) = identity
+    assert_mat("Mat4 A * inv(A) = I", a4 * inverse(a4), Mat4.identity());
+
+    // Identity properties
+    assert_mat("Mat4 A * I = A", a4 * Mat4.identity(), a4);
+    assert_mat("Mat4 I * A = A", Mat4.identity() * a4, a4);
+
+    // Division: A / F = A * inv(F)
+    // Hand-computed from numpy
+    expected_div4 : Mat4 = .{
+        -0.5, -0.5,  1.5, 1.5,
+        -1.0,  2.5,  0.5, 1.0,
+         1.5,  1.5, -0.5, -0.5,
+         0.5,  1.0, -1.0, 2.5
+    };
+    assert_mat("Mat4 A / F", a4 / f4, expected_div4);
+
+    // Addition
+    assert_mat("Mat4 A + F", a4 + f4, Mat4.{5, 1, 2, 2, 1, 4, 2, 0, 2, 2, 5, 1, 2, 0, 1, 4});
+
+    // Subtraction
+    assert_mat("Mat4 A - F", a4 - f4, Mat4.{3, 1, -2, 0, 1, 2, 0, 0, -2, 0, 3, 1, 0, 0, 1, 2});
+
+
+    // ===== float32 variants =====
+    a2f : Mat2f = .{1, 2, 3, 4};
+    b2f : Mat2f = .{5, 6, 7, 8};
+    assert_mat("Mat2f A + B", a2f + b2f, Mat2f.{6, 8, 10, 12});
+    assert_mat("Mat2f A * B", a2f * b2f, Mat2f.{19, 22, 43, 50});
+    assert_mat("Mat2f A * inv(A) = I", a2f * inverse(a2f), Mat2f.identity(), 0.001);
+    assert_mat("Mat2f A / B", a2f / b2f, Mat2f.{3, -2, 2, -1}, 0.001);
+
+    a3f : Mat3f = .{1, 2, 3, 4, 5, 6, 7, 8, 10};
+    assert_mat("Mat3f A * inv(A) = I", a3f * inverse(a3f), Mat3f.identity(), 0.001);
+
+    a4f : Mat4f = .{4, 1, 0, 1, 1, 3, 1, 0, 0, 1, 4, 1, 1, 0, 1, 3};
+    assert_mat("Mat4f A * inv(A) = I", a4f * inverse(a4f), Mat4f.identity(), 0.001);
+}
+
 math_test :: () {
     // make_non_binary_workspace();
     // math_test();
     // log("math_test OK\n");
     vector_test();
-matrix_test();
+    matrix_test();
+    matrix_correctness_test();
     cephes_test();
     simd_test();
     // log("t_test OK\n");

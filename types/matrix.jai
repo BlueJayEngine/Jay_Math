@@ -50,7 +50,6 @@ Matrix :: struct(COL: u8, ROW: u8, T: Type) {
     } 
 }
 
-#scope_file 
 Simd_Matrix :: struct (T: Type, N: s64) {
     seg32, seg16, tail :: #run get_simd_magic(T, N);
 
@@ -62,81 +61,57 @@ Simd_Matrix :: struct (T: Type, N: s64) {
         simd_tail: [tail] T;
 }
 
-operator[]= :: (mat: *$MT/Matrix, index: int, value: [MT.W] MT.T) {
+operator[]= :: (mat: *$MT/Matrix, index: int, value: [MT.COL] MT.T) {
     mat.cells[index] = value;
 }
 
-operator[] :: (mat: *$MT/Matrix, index: int) -> [MT.W] MT.T {
+operator[] :: (mat: *$MT/Matrix, index: int) -> [MT.COL] MT.T {
     return mat.cells[index];
 }
 
-operator+ :: inline (a: $Ta/Matrix, b: $Tb/Matrix) -> $RT/Matrix
-#modify {
-    
-    a_info := cast(*Type_Info_Struct) Ta;
-    b_info := cast(*Type_Info_Struct) Tb;
-
-    a_rows, b_rows : u8 = ---;
-
-    matrix_type: Type;
-
-    for param: a_info.specified_parameters {
-        if param.name == {
-            case "ROW"; a_rows = a_info.constant_storage[param.offset_into_constant_storage];
+operator+ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
+    result: T = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..T.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
         }
+        return builder_to_string(*builder);
     }
+    return result;
+}
 
-    for param: b_info.specified_parameters {
-        if param.name == {
-            case "ROW"; b_rows = b_info.constant_storage[param.offset_into_constant_storage];
+operator- :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
+    result: T = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..T.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
         }
+        return builder_to_string(*builder);
     }
+    return result;
+}
 
-    RT = ifx a_rows>=b_rows then Ta else Tb;
-    return true;
-} {
-    
-    max_col :: #run max(Ta.COL, Tb.ROW);
-    max_row :: #run max(Ta.ROW, Tb.COL);
-
-    result: RT = ---;
+operator* :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
+    result: T = ---;
 
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\n//\t%1 * %2\n//\tResult: %3\n", Ta, Tb, RT);
+        print_to_builder(*builder, "\n//\t% * %\n", T, T);
 
-        for i: 0..RT.ROW-1 {
-            for j: 0..RT.COL-1 {
+        for i: 0..T.ROW-1 {
+            for j: 0..T.COL-1 {
+                print_to_builder(*builder, "\tresult.cells[%][%] = ", i, j);
 
-                if i>=Ta.ROW {
-                    print_to_builder(*builder, "\tresult._%1%2 = b._%1%2;\n", i, j);
-                    continue;
-                }
+                for k: 0..T.COL-1 {
+                    print_to_builder(*builder, "a.cells[%][%] * b.cells[%][%]", i, k, k, j);
 
-                if j>=Tb.COL {
-                    print_to_builder(*builder, "\tresult._%1%2 = a._%1%2;\n", i, j);
-                    continue;
-                }
-
-                print_to_builder(*builder, "\tresult._%1%2 = ", i, j);
-
-                for k: 0..Tb.ROW-1 {
-
-                    print_to_builder(*builder, "a._%1%3*b._%3%2", i, j, k);
-
-                    if k+1>=Tb.ROW {
-                        if j>=Tb.ROW {
-                            k+=1;
-                            for g: k..max_row-1 {
-                                print_to_builder(*builder, " + a._%1%2", i, g);
-                            }
-                        }
-                        
-                        print_to_builder(*builder, ";\n");
-                    } else {
+                    if k+1 < T.COL {
                         print_to_builder(*builder, " + ");
                     }
                 }
+                print_to_builder(*builder, ";\n");
             }
             print_to_builder(*builder, "\n");
         }
@@ -147,100 +122,103 @@ operator+ :: inline (a: $Ta/Matrix, b: $Tb/Matrix) -> $RT/Matrix
     return result;
 }
 
-operator* :: (a: $Ta/Matrix, b: $Tb/Matrix) -> $RT/Matrix
-#modify {
-    
-    a_info := cast(*Type_Info_Struct) Ta;
-    b_info := cast(*Type_Info_Struct) Tb;
+operator/ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
+    #assert T.COL == T.ROW "Matrix division requires square matrices; use element-wise ops for non-square";
+    return a * inverse(b);
+}
 
-    a_rows, b_rows : u8 = ---;
-
-    matrix_type: Type;
-
-    for param: a_info.specified_parameters {
-        if param.name == {
-            case "ROW"; a_rows = a_info.constant_storage[param.offset_into_constant_storage];
-        }
-    }
-
-    for param: b_info.specified_parameters {
-        if param.name == {
-            case "ROW"; b_rows = b_info.constant_storage[param.offset_into_constant_storage];
-        }
-    }
-
-    RT = ifx a_rows>=b_rows then Ta else Tb;
-    return true;
-} {
-    
-    max_col :: #run max(Ta.COL, Tb.ROW);
-    max_row :: #run max(Ta.ROW, Tb.COL);
-
-    result: RT = ---;
-
+// Fallback element-wise division for non-square matrices
+operator/ :: inline (a: Mat4x3f, b: Mat4x3f) -> Mat4x3f #no_abc #no_aoc {
+    result: Mat4x3f = ---;
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\n//\t%1 * %2\n//\tResult: %3\n", Ta, Tb, RT);
-
-        for i: 0..RT.ROW-1 {
-            for j: 0..RT.COL-1 {
-
-                if i>=Ta.ROW {
-                    print_to_builder(*builder, "\tresult._%1%2 = b._%1%2;\n", i, j);
-                    continue;
-                }
-
-                if j>=Tb.COL {
-                    print_to_builder(*builder, "\tresult._%1%2 = a._%1%2;\n", i, j);
-                    continue;
-                }
-
-                print_to_builder(*builder, "\tresult._%1%2 = ", i, j);
-
-                for k: 0..Tb.ROW-1 {
-
-                    print_to_builder(*builder, "a._%1%3*b._%3%2", i, j, k);
-
-                    if k+1>=Tb.ROW {
-                        if j>=Tb.ROW {
-                            k+=1;
-                            for g: k..max_row-1 {
-                                print_to_builder(*builder, " + a._%1%2", i, g);
-                            }
-                        }
-                        
-                        print_to_builder(*builder, ";\n");
-                    } else {
-                        print_to_builder(*builder, " + ");
-                    }
-                }
-            }
-            print_to_builder(*builder, "\n");
+        for i: 0..Mat4x3f.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
         }
-
         return builder_to_string(*builder);
     }
-
     return result;
 }
 
+operator/ :: inline (a: Mat4x3, b: Mat4x3) -> Mat4x3 #no_abc #no_aoc {
+    result: Mat4x3 = ---;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..Mat4x3.N-1 {
+            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
+        }
+        return builder_to_string(*builder);
+    }
+    return result;
+}
 
-translate :: inline (mat: *$MT/Matrix, vec: Vector) {
+inverse :: inline (mat: Matrix) -> type_of(mat) {
+    #assert mat.COL == mat.ROW "Matrix must be square to compute inverse";
+    
+    result := mat.identity();
+    temp := mat;
+    
+    // Gauss-Jordan elimination
+    for pivot: 0..mat.ROW-1 {
+        // Find max element in column for partial pivoting
+        max_row := pivot;
+        max_val := abs(temp.cells[pivot][pivot]);
+        for row: pivot+1..mat.ROW-1 {
+            val := abs(temp.cells[row][pivot]);
+            if val > max_val {
+                max_val = val;
+                max_row = row;
+            }
+        }
+        
+        // Swap rows if needed
+        if max_row != pivot {
+            for col: 0..mat.COL-1 {
+                temp.cells[pivot][col], temp.cells[max_row][col] = temp.cells[max_row][col], temp.cells[pivot][col];
+                result.cells[pivot][col], result.cells[max_row][col] = result.cells[max_row][col], result.cells[pivot][col];
+            }
+        }
+        
+        // Scale pivot row
+        pivot_val := temp.cells[pivot][pivot];
+        assert(abs(pivot_val) > 0.0000001, "Matrix is singular and cannot be inverted");
+        
+        for col: 0..mat.COL-1 {
+            temp.cells[pivot][col] /= pivot_val;
+            result.cells[pivot][col] /= pivot_val;
+        }
+        
+        // Eliminate column
+        for row: 0..mat.ROW-1 {
+            if row == pivot continue;
+            
+            factor := temp.cells[row][pivot];
+            for col: 0..mat.COL-1 {
+                temp.cells[row][col] -= factor * temp.cells[pivot][col];
+                result.cells[row][col] -= factor * result.cells[pivot][col];
+            }
+        }
+    }
+    
+    return result;
+}
+
+translate :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
     #assert(MT.COL > 3);
     
     #if MT.T != VT.T {
-        mat._03 += xx vec.x;
-        mat._13 += xx vec.y;
-        mat._23 += xx vec.z;
+        mat.cells[0][3] += xx vec.x;
+        mat.cells[1][3] += xx vec.y;
+        mat.cells[2][3] += xx vec.z;
     } else {
-        mat._03 += vec.x;
-        mat._13 += vec.y;
-        mat._23 += vec.z;
+        mat.cells[0][3] += vec.x;
+        mat.cells[1][3] += vec.y;
+        mat.cells[2][3] += vec.z;
     }
 }
 
 translate :: (mat: $MT/Matrix, vec: Vector) -> MT {
-    result: MT;
+    result: MT = mat;
     translate(*result, vec);
     return result;
 }
@@ -248,9 +226,9 @@ translate :: (mat: $MT/Matrix, vec: Vector) -> MT {
 set_translation :: inline (mat: *$MT/Matrix, vec: $VT/Vectors3) {
     #assert MT.COL > 3 "Matrix has no capacity to store 3d translation";
 
-    mat._03 = vec.x;
-    mat._13 = vec.y;
-    mat._23 = vec.z;
+    mat.cells[0][3] = vec.x;
+    mat.cells[1][3] = vec.y;
+    mat.cells[2][3] = vec.z;
 }
 
 set_translation :: (mat: $MT/Matrix, vec: $VT/Vectors3) -> MT {
@@ -261,7 +239,7 @@ set_translation :: (mat: $MT/Matrix, vec: $VT/Vectors3) -> MT {
 
 rotate :: (mat: $MT/Matrix, rot: Rot) -> MT {
     result: MT;
-    rotate(*result, vec);
+    rotate(*result, rot);
     return result;
 }
 
