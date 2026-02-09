@@ -131,8 +131,134 @@ atan :: inline (x: float64) -> float64 { // TODO: replace atan
     return y;
 }
 
-atan2 :: Math.atan2; // TODO: replace atan2
-sqrt :: Math.sqrt;   // TODO: replace sqrt
+atan2 :: (y: float, x: float) -> float { return cast(float) atan2(cast(float64) y, cast(float64) x); } 
+atan2 :: (y: float64, x: float64) -> float64 { // TODO: replace atan2
+    //
+    // Here we have some preambles to check for nans, +/- zero, and infinities.
+    // Original Cephes had ifdefs so that you could compile these out.
+    // If you don't care about these, you could skip them. But really, I think
+    // if you don't care about these, you are likely to be using some other
+    // fast atan2 approximation anyway. Hard to say!
+    //
+
+    //
+    // We did a substantial amount of streamlining here to remove
+    // unnecessary assignments to variables, 'else's that didn't need
+    // to be there, etc!
+    //
+    if isnan(x) return x;
+    if isnan(y) return y;
+
+    if y == 0 {  // 0.0 compares as equal to -0.0, so .. yeah.
+	    if signbit(y) {
+		    if x > 0  return y;
+		    if x < 0  return -PI;
+
+			if signbit(x) return -PI;
+			return y;
+		} else {
+            // y is +0 if we get here.
+		    if x == 0 {
+			    if signbit(x) return PI;
+			    return 0;
+			}
+
+            if x > 0   return 0;
+            return PI;
+		}
+	}
+    
+    if x == 0 {
+        if y > 0 return PIO2;
+        return -PIO2;
+	}
+    
+    if x == INFINITY {
+	    if y == INFINITY  return 0.25 * PI;
+	    if y == -INFINITY return -0.25 * PI;
+	    if y < 0  	      return -0.0;
+
+	    return 0;
+	}
+    
+    if x == -INFINITY {
+	    if y == INFINITY   return 0.75 * PI;
+	    if y <= -INFINITY  return -0.75 * PI;
+	    if y >= 0          return PI;
+        
+	    return -PI;
+	}
+
+    if y ==  INFINITY return  PIO2;
+    if y == -INFINITY return -PIO2;
+
+    code: s16;
+    if x < 0  code = 2;
+    if y < 0  code |= 1;
+
+    if x == 0.0 {
+	    if code & 1  return -PIO2;
+	    if y == 0    return 0;
+
+	    return PIO2;
+	}
+
+    if y == 0 {
+	    if code & 2 return PI;
+	    return 0;
+	}
+
+    z := atan(y/x);
+    
+    if      code == 2  z += PI;
+    else if code == 3  z -= PI;
+
+    if (z == 0) && (y < 0) z = -0.0;
+    
+    return z;
+}
+
+SQRT2 :: 1.41421356237309504880;
+
+
+sqrt :: inline (x: float) -> float { return cast(float) sqrt(cast(float64) x); }
+sqrt :: (x: float64) -> float64 { // TODO: replace sqrt
+
+    if x <= 0 {
+	    if x < 0 {
+            Basic.log_error("Invalid argument to sqrt: %\n", x);
+        }
+        
+        return 0;
+	}
+    
+    /* separate exponent and significand */
+    /* Note, frexp and ldexp are used in order to
+     * handle denormal numbers properly.
+     */
+    z, e := frexp(x);
+
+    w := x;
+    
+    /* approximate square root of number between 0.5 and 1
+     * relative error of approximation = 7.47e-3
+     */
+    x = 4.173075996388649989089E-1 + 5.9016206709064458299663E-1 * z;
+
+    /* adjust for odd powers of 2 */
+    if e & 1  x *= SQRT2;
+
+    // Newton iterations:
+
+    x = ldexp(x, (e >> 1));
+
+    x = 0.5*(x+w/x);
+    x = 0.5*(x+w/x);
+    x = 0.5*(x+w/x);
+
+    return x;
+}
+
 
 sqrt :: (x: $T/Integers) -> T {
     return xx sqrt(cast(float32)x);

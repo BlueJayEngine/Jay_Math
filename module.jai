@@ -7,11 +7,12 @@
 
 #load "simd/common.jai";
 #load "simd/vector.jai";
+#load "simd/matrix.jai";
 
 #import "Basic";
 #import "Jay_Utils";
 
-#load "test.jai";
+// #load "test.jai";
 
 // Scalar constants from standart Math module
 

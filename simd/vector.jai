@@ -60,7 +60,7 @@ simd_bach :: inline (a: [$N] $T, b: [N] T, $op: Simd_Op) -> [N] T {
 
         bach_size :: size_of(T)*N;
 
-        log("% = % %*%", bach_size, T, size_of(T), N);
+        // log("% = % %*%", bach_size, T, size_of(T), N);
 
         print_to_builder(*builder, "#asm AVX, AVX2 {\n");
 

@@ -19,13 +19,13 @@ assert_close :: (label: string, a: $T/Floats, b: T, index: $inT) {
     } 
 }
 
-DATA_BYTES :: 80000000; 
+DATA_BYTES :: 800000; 
 
 Test_Data :: struct(T:Type) {
-    ref : [DATA_BYTES/size_of(T)]T;
-    delta : [DATA_BYTES/size_of(T)]T;
-    res : [DATA_BYTES/size_of(T)]T;
-    length :: DATA_BYTES/size_of(T);
+    ref : [DATA_BYTES]T;
+    delta : [DATA_BYTES]T;
+    res : [DATA_BYTES]T;
+    length :: DATA_BYTES;
 }
 
 test: union {
@@ -234,7 +234,7 @@ vector_test :: () {
 
 matrix_test :: () {
 
-    // Mat2
+// Mat2
     operator_test("_Mat2f", "+");
     operator_test("_Mat2f", "-");
     operator_test("_Mat2f", "*");
@@ -371,7 +371,6 @@ operator_test :: ($target: string, $op: string, $test_proc: string = "") {
                 return last_error >= 0, last_error;
             });
         CLEAR, test_proc, target, test_proc);
-        log("\n");
     }
 }
 

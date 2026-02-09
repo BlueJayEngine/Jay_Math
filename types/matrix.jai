@@ -69,87 +69,57 @@ operator[] :: (mat: *$MT/Matrix, index: int) -> [MT.COL] MT.T {
     return mat.cells[index];
 }
 
-operator+ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
-    result: T = ---;
+operator== :: (a: $T/Matrix, b: T) -> bool #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
-        for i: 0..T.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
+        print_to_builder(*builder, "\treturn a.values[0] == b.values[0]");
+        for i: 1..T.N-1 {
+            print_to_builder(*builder, " && a.values[%1] == b.values[%1]", i);
         }
+        print_to_builder(*builder, ";");
         return builder_to_string(*builder);
     }
-    return result;
+}
+
+operator!= :: (a: $T/Matrix, b: T) -> bool #no_abc #no_aoc {
+    #insert -> string {
+        builder: String_Builder;
+        print_to_builder(*builder, "\treturn a.values[0] != b.values[0]");
+        for i: 1..T.N-1 {
+            print_to_builder(*builder, " || a.values[%1] != b.values[%1]", i);
+        }
+        print_to_builder(*builder, ";");
+        return builder_to_string(*builder);
+    }
+}
+
+length :: inline (m: $T/Matrix) -> T.T {
+    return #insert -> string {
+        builder: String_Builder;
+        print_to_builder(*builder, "sqrt(m.values[0] * m.values[0]");
+        for i: 1..T.N-1 {
+            print_to_builder(*builder, " + m.values[%] * m.values[%]", i, i);
+        }
+        print_to_builder(*builder, ");");
+        return builder_to_string(*builder);
+    };
+}
+
+operator+ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
+    return inline simd_mat(a, b, .ADD);
 }
 
 operator- :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
-    result: T = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..T.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
+    return inline simd_mat(a, b, .SUB);
 }
 
 operator* :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
-    result: T = ---;
-
-    #insert -> string {
-        builder: String_Builder;
-        print_to_builder(*builder, "\n//\t% * %\n", T, T);
-
-        for i: 0..T.ROW-1 {
-            for j: 0..T.COL-1 {
-                print_to_builder(*builder, "\tresult.cells[%][%] = ", i, j);
-
-                for k: 0..T.COL-1 {
-                    print_to_builder(*builder, "a.cells[%][%] * b.cells[%][%]", i, k, k, j);
-
-                    if k+1 < T.COL {
-                        print_to_builder(*builder, " + ");
-                    }
-                }
-                print_to_builder(*builder, ";\n");
-            }
-            print_to_builder(*builder, "\n");
-        }
-
-        return builder_to_string(*builder);
-    }
-
-    return result;
+    return inline simd_mat_mult(a, b);
 }
 
 operator/ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
     #assert T.COL == T.ROW "Matrix division requires square matrices; use element-wise ops for non-square";
     return a * inverse(b);
-}
-
-// Fallback element-wise division for non-square matrices
-operator/ :: inline (a: Mat4x3f, b: Mat4x3f) -> Mat4x3f #no_abc #no_aoc {
-    result: Mat4x3f = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..Mat4x3f.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator/ :: inline (a: Mat4x3, b: Mat4x3) -> Mat4x3 #no_abc #no_aoc {
-    result: Mat4x3 = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..Mat4x3.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
 }
 
 inverse :: inline (mat: Matrix) -> type_of(mat) {
