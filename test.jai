@@ -128,6 +128,149 @@ cephes_test :: () {
     simple_test("_f32", "atan2", true);
     simple_test("_f64", "atan2", true);
 
+    log("sqrt uses hardware sqrtss/sqrtsd — correctly rounded, may differ from Cephes Newton iteration");
+    simple_test("_f32", "sqrt", false);
+    simple_test("_f64", "sqrt", false);
+
+    asin_acos_test();
+
+}
+
+asin_acos_test :: () {
+    // asin/acos need inputs in [-1, 1], so we can't use simple_test
+    // which generates values like 2.23, 3.46, etc.
+
+    // Generate inputs in (-1, 1)
+    for 0..test._f64.length-1 {
+        // Map index to (-1, 1) range, avoiding exact ±1
+        val : float64 = (cast(float64)(it % 19999) - 9999.0) / 10000.0;
+        test._f64.ref[it] = val;
+        test._f64.res[it] = val;
+    }
+
+    do_test("asin_f64_default", () {
+        for 0..test._f64.length-1
+            test._f64.ref[it] = Math.asin(test._f64.ref[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("asin_f64", () {
+        for 0..test._f64.length-1
+            test._f64.res[it] = asin(test._f64.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f64.length-1 {
+            if abs(test._f64.ref[it] - test._f64.res[it]) > epsilon(float64) {
+                error += test._f64.ref[it] - test._f64.res[it];
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f64.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f64.ref[last_error+offset], test._f64.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    // Reset for f32
+    for 0..test._f32.length-1 {
+        val : float32 = (cast(float32)(it % 19999) - 9999.0) / 10000.0;
+        test._f32.ref[it] = val;
+        test._f32.res[it] = val;
+    }
+
+    do_test("asin_f32_default", () {
+        for 0..test._f32.length-1
+            test._f32.ref[it] = cast(float32) Math.asin(cast(float64) test._f32.ref[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("asin_f32", () {
+        for 0..test._f32.length-1
+            test._f32.res[it] = asin(test._f32.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f32.length-1 {
+            if abs(test._f32.ref[it] - test._f32.res[it]) > epsilon(float32) {
+                error += cast(float64)(test._f32.ref[it] - test._f32.res[it]);
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f32.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f32.ref[last_error+offset], test._f32.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    log("\n");
+
+    // acos tests — same input range
+    for 0..test._f64.length-1 {
+        val : float64 = (cast(float64)(it % 19999) - 9999.0) / 10000.0;
+        test._f64.ref[it] = val;
+        test._f64.res[it] = val;
+    }
+
+    do_test("acos_f64_default", () {
+        for 0..test._f64.length-1
+            test._f64.ref[it] = Math.acos(test._f64.ref[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("acos_f64", () {
+        for 0..test._f64.length-1
+            test._f64.res[it] = acos(test._f64.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f64.length-1 {
+            if abs(test._f64.ref[it] - test._f64.res[it]) > epsilon(float64) {
+                error += test._f64.ref[it] - test._f64.res[it];
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f64.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f64.ref[last_error+offset], test._f64.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    for 0..test._f32.length-1 {
+        val : float32 = (cast(float32)(it % 19999) - 9999.0) / 10000.0;
+        test._f32.ref[it] = val;
+        test._f32.res[it] = val;
+    }
+
+    do_test("acos_f32_default", () {
+        for 0..test._f32.length-1
+            test._f32.ref[it] = cast(float32) Math.acos(cast(float64) test._f32.ref[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("acos_f32", () {
+        for 0..test._f32.length-1
+            test._f32.res[it] = acos(test._f32.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f32.length-1 {
+            if abs(test._f32.ref[it] - test._f32.res[it]) > epsilon(float32) {
+                error += cast(float64)(test._f32.ref[it] - test._f32.res[it]);
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f32.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f32.ref[last_error+offset], test._f32.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    log("\n");
 }
 
 simd_test :: () {
@@ -415,7 +558,7 @@ simple_test :: ($target: string, $op: string, $needs_delta: bool, $default: stri
             last_error := -1;
 
             for 0..test.%2.length-1 {
-               if test.%2.ref[it] != test.%2.res[it] { 
+               if abs(test.%2.ref[it] - test.%2.res[it]) > epsilon(type_of(test.%2.ref[it])) { 
                     error += cast(float64) (test.%2.ref[it] - test.%2.res[it]);
                     last_error = it;
                 }

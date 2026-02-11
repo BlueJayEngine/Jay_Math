@@ -3,12 +3,14 @@ sin :: inline (x: float64) -> float64 {
     s, _ := inline sincos(x, do_sin = true, do_cos = false);
     return s;
 }
+sin :: inline (x: $T/Integers) -> T { return xx floor(sin(cast(float64)x) + 0.5); }
 
 cos :: inline (x: float32) -> float32 { return cast(float32) cos(cast(float64) x); } 
 cos :: inline (x: float64) -> float64 {
     _, c := inline sincos(x, do_sin = false, do_cos = true);
     return c;
 }
+cos :: inline (x: $T/Integers) -> T { return xx floor(cos(cast(float64)x) + 0.5); }
 
 sincos :: inline (x: float64, $do_sin: bool, $do_cos: bool) -> (sin_value: float64, cos_value: float64) {
     #assert do_sin || do_cos "sincos: at least one of do_sin or do_cos must be true"; 
@@ -95,9 +97,10 @@ tan :: inline (x: float64) -> float64 {
     s,c := sincos(x, true, true);
     return s/c;
 }
+tan :: inline (x: $T/Integers) -> T { return xx floor(tan(cast(float64)x) + 0.5); }
 
 atan :: inline (y: float32) -> float32 { return cast(float32) atan(cast(float64)y); } 
-atan :: inline (x: float64) -> float64 { // TODO: replace atan
+atan :: inline (x: float64) -> float64 {
     if x == 0.0 return x;
 
     if x ==  INFINITY return  PIO2;
@@ -112,37 +115,38 @@ atan :: inline (x: float64) -> float64 { // TODO: replace atan
 
     /* range reduction */
 
-    flag: s16;  // @Cleanup: Remove flag?
-
     y: float64 = ---;
+    morebits: float64 = ---;
     if x > T3P8 {
 	    y = PIO2;
-	    flag = 1;
+	    morebits = MOREBITS;
 	    x = -1/x;
     } else if x <= 0.66 {
 	    y = 0;
+	    morebits = 0;
     } else {
 	    y = PIO4;
-	    flag = 2;
+	    morebits = 0.5 * MOREBITS;
 	    x = (x-1)/(x+1);
     }
 
     z := x * x;
-    z = z * polynomial_eval(z, P, 4) / polynomial_eval_1(z, Q, 5);
+
+    p := ((((0hbfec007fa1f72594 * z + 0hc03028545b6b807a) * z + 0hc052c08c36880273) * z + 0hc05eb8bf2d05ba25) * z + 0hc0503669fd28ec8e);
+    q := (((( z               + 0h4038dbc45b14603c) * z + 0h4064a0dd43b8fa25) * z + 0h407b0e18d2e2be3b) * z + 0h407e563f13b049ea) * z + 0h4068519efbbd62ec;
+    z = z * p / q;
 
     z = x * z + x;
-
-    if flag == 2       z += 0.5 * MOREBITS;
-    else if flag == 1  z += MOREBITS;
-
+    z += morebits;
     y += z;
 
     if sign < 0  return -y;
     return y;
 }
+atan :: inline (x: $T/Integers) -> T { return xx floor(atan(cast(float64)x) + 0.5); }
 
 atan2 :: (y: float, x: float) -> float { return cast(float) atan2(cast(float64) y, cast(float64) x); } 
-atan2 :: (y: float64, x: float64) -> float64 { // TODO: replace atan2
+atan2 :: (y: float64, x: float64) -> float64 {
     //
     // Here we have some preambles to check for nans, +/- zero, and infinities.
     // Original Cephes had ifdefs so that you could compile these out.
@@ -228,45 +232,22 @@ atan2 :: (y: float64, x: float64) -> float64 { // TODO: replace atan2
     return z;
 }
 
-SQRT2 :: 1.41421356237309504880;
+atan2 :: inline (y: $T/Integers, x: T) -> T { return xx floor(atan2(cast(float64)y, cast(float64)x) + 0.5); }
 
+sqrt :: inline (x: float) -> float {
+    #if CPU == .X64 {
+        ret: float;
+        #asm SSE { sqrtss r:, [*x]; movss [*ret], r; }
+        return ret;
+    }
+}
 
-sqrt :: inline (x: float) -> float { return cast(float) sqrt(cast(float64) x); }
-sqrt :: (x: float64) -> float64 { // TODO: replace sqrt
-
-    if x <= 0 {
-	    if x < 0 {
-            Basic.log_error("Invalid argument to sqrt: %\n", x);
-        }
-        
-        return 0;
-	}
-    
-    /* separate exponent and significand */
-    /* Note, frexp and ldexp are used in order to
-     * handle denormal numbers properly.
-     */
-    z, e := frexp(x);
-
-    w := x;
-    
-    /* approximate square root of number between 0.5 and 1
-     * relative error of approximation = 7.47e-3
-     */
-    x = 4.173075996388649989089E-1 + 5.9016206709064458299663E-1 * z;
-
-    /* adjust for odd powers of 2 */
-    if e & 1  x *= SQRT2;
-
-    // Newton iterations:
-
-    x = ldexp(x, (e >> 1));
-
-    x = 0.5*(x+w/x);
-    x = 0.5*(x+w/x);
-    x = 0.5*(x+w/x);
-
-    return x;
+sqrt :: inline (x: float64) -> float64 {
+    #if CPU == .X64 {
+        ret: float64;
+        #asm SSE { sqrtsd r:, [*x]; movsd [*ret], r; }
+        return ret;
+    }
 }
 
 
@@ -274,16 +255,66 @@ sqrt :: (x: $T/Integers) -> T {
     return xx sqrt(cast(float32)x);
 }
 
+asin :: inline (y: float32) -> float32 { return cast(float32) asin(cast(float64)y); }
+asin :: inline (x: float64) -> float64 {
+    sign: float64 = 1;
+    a := x;
+    if x < 0 {
+        sign = -1;
+        a = -x;
+    }
+
+    if a > 1 return FLOAT64_NAN;
+
+    if a > 0.625 {
+        // arcsin(1-x) = pi/2 - sqrt(2x)(1+R(x))
+        zz := 1.0 - a;
+        p := ((((0h3f68_4fc3_988e_9f08 * zz + 0hbfe2_0792_59f9_290f) * zz + 0h401b_dff5_baf3_3e6a) * zz + 0hc039_91aa_ac01_ab68) * zz + 0h403c_8962_40f3_081d);
+        q := ((((                  zz + 0hc035_f2a2_b6bf_5d8c) * zz + 0h4062_6219_af6a_7f42) * zz + 0hc077_fe08_9590_63ee) * zz + 0h4075_6709_b0b6_44be);
+        p = zz * p / q;
+        zz = sqrt(zz + zz);
+        z := PIO4 - zz;
+        zz = zz * p - MOREBITS;
+        z = z - zz;
+        z = z + PIO4;
+        return z * sign;
+    }
+
+    // arcsin(x) = x + x^3 P(x^2)/Q(x^2)
+    if a < 1.0e-8 return x;
+
+    zz := a * a;
+    p := (((((0h3f71_6b9b_0bd4_8ad3 * zz + 0hbfe3_4341_333e_5c16) * zz + 0h4015_c74b_178a_2dd9) * zz + 0hc030_4331_de27_907b) * zz + 0h4033_9007_da77_9259) * zz + 0hc020_656c_06ce_afd5);
+    q := (((((                  zz + 0hc02d_7b59_0b5e_0eab) * zz + 0h4051_9fc0_25fe_9054) * zz + 0hc062_65bb_6d35_76d7) * zz + 0h4061_7056_84ff_bf9d) * zz + 0hc048_9822_0a36_07ac);
+    z := zz * p / q;
+    z = a * z + a;
+    return z * sign;
+}
+asin :: inline (x: $T/Integers) -> T { return xx floor(asin(cast(float64)x) + 0.5); }
+
+acos :: inline (y: float32) -> float32 { return cast(float32) acos(cast(float64)y); }
+acos :: inline (x: float64) -> float64 {
+    if x < -1 || x > 1 return FLOAT64_NAN;
+
+    if x > 0.5 return 2 * asin(sqrt(0.5 - 0.5 * x));
+
+    z := PIO4 - asin(x);
+    z = z + MOREBITS;
+    z = z + PIO4;
+    return z;
+}
+acos :: inline (x: $T/Integers) -> T { return xx floor(acos(cast(float64)x) + 0.5); }
+
+// TODO:
+// - exp — e^x
+// - log (ln) — natural logarithm
+// - log2 — base-2 logarithm
+// - pow — x^y
+
 
 #scope_file
 
-polynomial_eval :: (x: float64, coef: [] float64, N: s32) -> float64 {
-    ans := coef[0];
-
-    for 1..N  ans = ans * x + coef[it];
-
-    return ans;
-}
+// reused cephes stuff:
 
 polynomial_eval_coscof5 :: inline (x: float64) -> float64 {
     x2 := x*x;
@@ -303,55 +334,15 @@ polynomial_eval_sincof5 :: inline (x: float64) -> float64 {
     8.33333333332211858878E-3*x  -  1.66666666666666307295E-1;
 }
 
-/*							polynomial_eval_1()	*/
-/*                                          N
-* Evaluate polynomial when coefficient of x  is 1.0.
-* Otherwise same as polevl.
-*/
-
-polynomial_eval_1 :: (x: float64, coef: [] float64, N: s32) -> float64 {
-    ans := x + coef[0];
-
-    for 1..N-1  ans = ans * x + coef[it];
-
-    return ans;
-}
-
-MANTISSA_BITS  :: 53;
-NEGATIVE_ZERO_64 :: 0h8000_0000_0000_0000;
-
 MOREBITS :: 6.123233995736765886130e-17;
 
 INFINITY :: FLOAT64_INFINITY;
 
 PIO2  :: 0h3ff9_21fb_5444_2d18;
 PIO4  :: 0h3fe9_21fb_5444_2d18;
-LOG2E :: 0h3ff7_1547_652b_82fe;
-
-/* log2(e) - 1 */
-// @Incomplete: Why is this not a hexfloat?
-LOG2EA :: 0.44269504088896340736;
-
 
 /* tan( 3*pi/8 ) */
 T3P8 :: 2.41421356237309504880;
-
-P :: float64.[
-      0hbfec007fa1f72594,  // -8.750608600031904122785e-1
-      0hc03028545b6b807a,  // -1.615753718733365076637e1
-      0hc052c08c36880273,  // -7.500855792314704667340e1
-      0hc05eb8bf2d05ba25,  // -1.228866684490136173410e2
-      0hc0503669fd28ec8e   // -6.485021904942025371773e1
-];
-
-Q :: float64.[
-      /* 1.000000000000000000000e0, */
-      0h4038dbc45b14603c,  // 2.485846490142306297962e1
-      0h4064a0dd43b8fa25,  // 1.650270098316988542046e2
-      0h407b0e18d2e2be3b,  // 4.328810604912902668951e2
-      0h407e563f13b049ea,  // 4.853903996359136964868e2
-      0h4068519efbbd62ec   // 1.945506571482613964425e2
-];
 
 FloatInt64 :: union {
     _u64:     u64;
