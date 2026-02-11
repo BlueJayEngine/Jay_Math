@@ -134,6 +134,9 @@ cephes_test :: () {
 
     asin_acos_test();
 
+    simple_test("_f32", "exp", false);
+    simple_test("_f64", "exp", false);
+
 }
 
 asin_acos_test :: () {

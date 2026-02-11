@@ -305,8 +305,48 @@ acos :: inline (x: float64) -> float64 {
 }
 acos :: inline (x: $T/Integers) -> T { return xx floor(acos(cast(float64)x) + 0.5); }
 
+exp :: inline (y: float32) -> float32 { return cast(float32) exp(cast(float64)y); }
+exp :: inline (x: float64) -> float64 {
+    if isnan(x) return x;
+    if x >  170.0 return FLOAT64_INFINITY;
+    if x < -170.0 return 0;
+
+    // Express e^x = e^g * 2^n  via  x = g + n*ln(2)
+    // n = round(x * log2(e))
+    px := floor(0h3ff7_1547_652b_82fe * x + 0.5);
+    n := cast(s32) px;
+
+    // Cohn-Waite reduction: x -= n * ln(2) in extended precision
+    x -= px * 0h3fe6_2e40_0000_0000;  // C1 (high bits of ln2)
+    x -= px * 0h3eb7_f7d1_cf79_abca;  // C2 (low bits of ln2)
+
+    // Pade approximation: e^x = 1 + 2x P(x^2) / (Q(x^2) - P(x^2))
+    x2 := x * x;
+
+    // P: degree 2 — inlined Horner
+    px = ((0h3f20_89cd_d5e4_4be8 * x2 + 0h3f9f_06d1_0cca_2c7e) * x2 + 0h3ff0_0000_0000_0000);
+    px = x * px;
+
+    // Q: degree 3 — inlined Horner
+    qx := (((0h3ec9_2eb6_bc36_5fa0 * x2 + 0h3f64_ae39_b508_b6c0) * x2 + 0h3fcd_1709_9887_e074) * x2 + 0h4000_0000_0000_0000);
+
+    x = px / (qx - px);
+    x = 1 + 2 * x;
+
+    // Multiply by 2^n using two-step scaling to handle the full exponent range
+    // without overflow in intermediates. Each step constructs a power-of-2 double
+    // by writing the biased exponent directly into the IEEE-754 bit pattern.
+    n1 := cast(s64)(n / 2);
+    n2 := cast(s64) n - n1;
+    pow1: FloatInt64;
+    pow1._u64 = cast(u64)(1023 + n1) << 52;
+    pow2: FloatInt64;
+    pow2._u64 = cast(u64)(1023 + n2) << 52;
+    return x * pow1._float64 * pow2._float64;
+}
+exp :: inline (x: $T/Integers) -> T { return xx floor(exp(cast(float64)x) + 0.5); }
+
 // TODO:
-// - exp — e^x
 // - log (ln) — natural logarithm
 // - log2 — base-2 logarithm
 // - pow — x^y
