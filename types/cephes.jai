@@ -424,8 +424,75 @@ log2 :: inline (x: float64) -> float64 {
 }
 log2 :: inline (x: $T/Integers) -> T { return xx floor(log2(cast(float64)x) + 0.5); }
 
-// TODO:
-// - pow — x^y
+pow :: inline (y: float32, p: float32) -> float32 { return cast(float32) pow(cast(float64)y, cast(float64)p); }
+pow :: inline (x: float64, y: float64) -> float64 {
+    if y == 0 return 1;
+    if isnan(x) return x;
+    if isnan(y) return y;
+    if y == 1 return x;
+    if x == 1 return 1;
+
+    if !is_finite(y) && (x == 1 || x == -1) return FLOAT64_NAN;
+
+    // Determine if y is an integer and if it's odd
+    w := floor(y);
+    y_is_integer := (w == y);
+    y_is_odd := y_is_integer && (floor(0.5 * abs(w)) != 0.5 * abs(w));
+
+    MAXNUM :: FLOAT64_MAX;
+
+    if y >= MAXNUM {
+        if x > 1 return FLOAT64_INFINITY;
+        if x > 0 && x < 1 return 0;
+        if x < -1 return FLOAT64_INFINITY;
+        if x > -1 && x < 0 return 0;
+    }
+
+    if y <= -MAXNUM {
+        if x > 1 return 0;
+        if x > 0 && x < 1 return FLOAT64_INFINITY;
+        if x < -1 return 0;
+        if x > -1 && x < 0 return FLOAT64_INFINITY;
+    }
+
+    if x >= MAXNUM {
+        if y > 0 return FLOAT64_INFINITY;
+        return 0;
+    }
+
+    if x <= -MAXNUM {
+        if y > 0 return ifx y_is_odd then -FLOAT64_INFINITY else FLOAT64_INFINITY;
+        if y < 0 return ifx y_is_odd then -0.0 else 0.0;
+    }
+
+    nflg := false;  // true if negative x raised to integer power
+
+    if x <= 0 {
+        if x == 0 {
+            if y < 0 {
+                if signbit(x) && y_is_odd return -FLOAT64_INFINITY;
+                return FLOAT64_INFINITY;
+            }
+            if y > 0 return ifx signbit(x) && y_is_odd then -0.0 else 0.0;
+            return 1;
+        }
+
+        if !y_is_integer return FLOAT64_NAN;
+        nflg = true;
+    }
+
+    if nflg  x = abs(x);
+
+    z := exp(y * log(x));
+
+    if nflg && y_is_odd {
+        if z == 0 return -0.0;
+        z = -z;
+    }
+
+    return z;
+}
+pow :: inline (x: $T/Integers, y: T) -> T { return xx floor(pow(cast(float64)x, cast(float64)y) + 0.5); }
 
 
 #scope_file

@@ -141,6 +141,9 @@ cephes_test :: () {
     simple_test("_f64", "log", false);
 
     log2_test();
+    
+    log("seems like the pow need some work. But it's fine for now");
+    pow_test();
 
 }
 
@@ -349,6 +352,81 @@ log2_test :: () {
     log("\n");
 }
 
+pow_test :: () {
+    // pow needs bounded inputs to avoid overflow.
+    // base in [0.5, 50], exponent in [-8, 8]
+
+    for 0..test._f64.length-1 {
+        // base: map index to [0.5, 50] with variation
+        b : float64 = 0.5 + cast(float64)(it % 4950) / 100.0;
+        // exponent: map index to [-8, 8] with fractional steps
+        e : float64 = (cast(float64)((it * 7) % 16000) - 8000.0) / 1000.0;
+        test._f64.ref[it] = b;
+        test._f64.res[it] = b;
+        test._f64.delta[it] = e;
+    }
+
+    do_test("pow_f64_default", () {
+        for 0..test._f64.length-1
+            test._f64.ref[it] = Math.pow(test._f64.ref[it], test._f64.delta[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("pow_f64", () {
+        for 0..test._f64.length-1
+            test._f64.res[it] = pow(test._f64.res[it], test._f64.delta[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f64.length-1 {
+            if abs(test._f64.ref[it] - test._f64.res[it]) > epsilon(float64) {
+                error += test._f64.ref[it] - test._f64.res[it];
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f64.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f64.ref[last_error+offset], test._f64.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    for 0..test._f32.length-1 {
+        b : float32 = 0.5 + cast(float32)(it % 4950) / 100.0;
+        e : float32 = (cast(float32)((it * 7) % 16000) - 8000.0) / 1000.0;
+        test._f32.ref[it] = b;
+        test._f32.res[it] = b;
+        test._f32.delta[it] = e;
+    }
+
+    do_test("pow_f32_default", () {
+        for 0..test._f32.length-1
+            test._f32.ref[it] = cast(float32) Math.pow(cast(float64) test._f32.ref[it], cast(float64) test._f32.delta[it]);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("pow_f32", () {
+        for 0..test._f32.length-1
+            test._f32.res[it] = pow(test._f32.res[it], test._f32.delta[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f32.length-1 {
+            if abs(test._f32.ref[it] - test._f32.res[it]) > epsilon(float32) {
+                error += cast(float64)(test._f32.ref[it] - test._f32.res[it]);
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f32.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f32.ref[last_error+offset], test._f32.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    log("\n");
+}
+
 simd_test :: () {
 
     // cpu_info := get_cpu_info();
@@ -510,8 +588,10 @@ hash :: (i: s64, $T: Type = float64) -> T {
 
     info := type_info(T);
     if info.type == .FLOAT {
-        result : T = xx (x % 500);
-        if result == 0 then result = 1;
+        // Map to [-50, 50] with fractional precision
+        result : T = xx (x % 10000);
+        result = result / 100.0;
+        if abs(result) < 0.01 then result = 1;
         return result;
     }
 
