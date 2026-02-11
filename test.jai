@@ -137,6 +137,11 @@ cephes_test :: () {
     simple_test("_f32", "exp", false);
     simple_test("_f64", "exp", false);
 
+    simple_test("_f32", "log", false);
+    simple_test("_f64", "log", false);
+
+    log2_test();
+
 }
 
 asin_acos_test :: () {
@@ -256,6 +261,74 @@ asin_acos_test :: () {
     do_test("acos_f32", () {
         for 0..test._f32.length-1
             test._f32.res[it] = acos(test._f32.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f32.length-1 {
+            if abs(test._f32.ref[it] - test._f32.res[it]) > epsilon(float32) {
+                error += cast(float64)(test._f32.ref[it] - test._f32.res[it]);
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f32.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f32.ref[last_error+offset], test._f32.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    log("\n");
+}
+
+log2_test :: () {
+    LOG2E :: 0h3ff7_1547_652b_82fe;
+
+    for 0..test._f64.length-1 {
+        val : float64 = xx (1+(it+1) * 1.23456789);
+        test._f64.ref[it] = val;
+        test._f64.res[it] = val;
+    }
+
+    do_test("log2_f64_default", () {
+        for 0..test._f64.length-1
+            test._f64.ref[it] = Math.log(test._f64.ref[it]) * LOG2E;
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("log2_f64", () {
+        for 0..test._f64.length-1
+            test._f64.res[it] = log2(test._f64.res[it]);
+    }, ()->(bool, s64){
+        last_error := -1;
+        for 0..test._f64.length-1 {
+            if abs(test._f64.ref[it] - test._f64.res[it]) > epsilon(float64) {
+                error += test._f64.ref[it] - test._f64.res[it];
+                last_error = it;
+            }
+        }
+        if last_error >= 0 {
+            for offset: -2..2 {
+                if last_error+offset < 0 || last_error+offset >= test._f64.length then continue;
+                log("\t%%: ref %, res %", ifx offset == 0 then ">>" else "  ", last_error+offset, test._f64.ref[last_error+offset], test._f64.res[last_error+offset]);
+            }
+        }
+        return last_error >= 0, last_error;
+    });
+
+    for 0..test._f32.length-1 {
+        val : float32 = xx (1+(it+1) * 1.23456789);
+        test._f32.ref[it] = val;
+        test._f32.res[it] = val;
+    }
+
+    do_test("log2_f32_default", () {
+        for 0..test._f32.length-1
+            test._f32.ref[it] = cast(float32)(Math.log(cast(float64) test._f32.ref[it]) * LOG2E);
+    }, ()->(bool, s64){return false, -1;});
+
+    do_test("log2_f32", () {
+        for 0..test._f32.length-1
+            test._f32.res[it] = log2(test._f32.res[it]);
     }, ()->(bool, s64){
         last_error := -1;
         for 0..test._f32.length-1 {

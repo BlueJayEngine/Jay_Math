@@ -346,9 +346,85 @@ exp :: inline (x: float64) -> float64 {
 }
 exp :: inline (x: $T/Integers) -> T { return xx floor(exp(cast(float64)x) + 0.5); }
 
+log :: inline (y: float32) -> float32 { return cast(float32) log(cast(float64)y); }
+log :: inline (x: float64) -> float64 {
+    if isnan(x) return x;
+    if x == FLOAT64_INFINITY return x;
+    if x <= 0 {
+        if x == 0 return -FLOAT64_INFINITY;
+        return FLOAT64_NAN;
+    }
+
+    // Extract exponent and mantissa via bit manipulation (replaces frexp)
+    fi: FloatInt64;
+    fi._float64 = x;
+    e := cast(s32)((fi._u64 >> 52) & 0x7ff) - 1022;
+    fi._u64 = (fi._u64 & 0x800f_ffff_ffff_ffff) | 0x3fe0_0000_0000_0000;
+    x = fi._float64;
+
+    SQRTH :: 0.70710678118654752440;
+
+    if (e > 2) || (e < -2) {
+        // log(x) = z + z^3 R(z^2)/S(z^2), where z = 2(x-1)/(x+1)
+        y, z: float64 = ---;
+        if x < SQRTH {
+            e -= 1;
+            z = x - 0.5;
+            y = 0.5 * z + 0.5;
+        } else {
+            z = x - 0.5;
+            z -= 0.5;
+            y = 0.5 * x + 0.5;
+        }
+
+        x = z / y;
+        z = x * x;
+
+        // R: degree 2, S: degree 3 (leading coeff 1) — inlined Horner
+        r := ((0hbfe9_443d_dc6c_0e84 * z + 0h4030_62fc_7302_7b6b) * z + 0hc050_0906_1122_2a20);
+        s := (((              z + 0hc041_d60d_43ec_6d0a) * z + 0h4073_8180_112a_e40e) * z + 0hc088_0d89_19b3_3f3b);
+        z = x * (z * r / s);
+
+        fe := cast(float64) e;
+        z -= fe * 2.121944400546905827679e-4;
+        z += x;
+        z += fe * 0.693359375;
+        return z;
+    }
+
+    // log(1+x) = x - 0.5x^2 + x^3 P(x)/Q(x)
+    if x < SQRTH {
+        e -= 1;
+        x = x * 2.0 - 1;
+    } else {
+        x -= 1;
+    }
+
+    z := x * x;
+
+    // P: degree 5, Q: degree 5 (leading coeff 1) — inlined Horner
+    p := (((((0h3f1a_b4c2_93c3_1bb0 * x + 0h3fdf_d6f5_3f56_52f2) * x + 0h4012_d2ba_ed92_6911) * x + 0h402c_ff72_c63e_eb2e) * x + 0h4031_efd6_924b_c84d) * x + 0h401e_d563_7d7e_dcf8);
+    q := (((((              x + 0h4026_9320_ae97_ef8e) * x + 0h4046_9d2c_4e19_c033) * x + 0h4054_bf33_a326_bdbd) * x + 0h4051_c9e2_eb5e_ae21) * x + 0h4037_200a_9e1f_25b2);
+    y := x * (z * p / q);
+
+    fe := cast(float64) e;
+    if e  y -= fe * 2.121944400546905827679e-4;
+    y -= z * 0.5;
+    z = x + y;
+    if e  z += fe * 0.693359375;
+
+    return z;
+}
+log :: inline (x: $T/Integers) -> T { return xx floor(log(cast(float64)x) + 0.5); }
+
+log2 :: inline (y: float32) -> float32 { return cast(float32) log2(cast(float64)y); }
+log2 :: inline (x: float64) -> float64 {
+    LOG2E :: 0h3ff7_1547_652b_82fe;  // 1/ln(2)
+    return log(x) * LOG2E;
+}
+log2 :: inline (x: $T/Integers) -> T { return xx floor(log2(cast(float64)x) + 0.5); }
+
 // TODO:
-// - log (ln) — natural logarithm
-// - log2 — base-2 logarithm
 // - pow — x^y
 
 
