@@ -1,89 +1,99 @@
+sin :: inline (x: float32) -> float32 { return cast(float32) sin(cast(float64) x); }    
+sin :: inline (x: float64) -> float64 {
+    s, _ := inline sincos(x, do_sin = true, do_cos = false);
+    return s;
+}
 
-sin_or_cos :: (x: float64, $IS_SIN: bool) -> float64 {
-    #if IS_SIN  if x == 0 return x;
+cos :: inline (x: float32) -> float32 { return cast(float32) cos(cast(float64) x); } 
+cos :: inline (x: float64) -> float64 {
+    _, c := inline sincos(x, do_sin = false, do_cos = true);
+    return c;
+}
 
-    sf := reinterp(s64,x);
-    exponent := cast(s32) ((sf >> 52) & 0x7ff);
-    if exponent == 0x7ff {  // It is nan or inf. Replace with an intrinsic.
-        if isnan(x) return x;  // @Cleanup: Redundancies...
-	    return FLOAT64_NAN;
+sincos :: inline (x: float64, $do_sin: bool, $do_cos: bool) -> (sin_value: float64, cos_value: float64) {
+    #assert do_sin || do_cos "sincos: at least one of do_sin or do_cos must be true"; 
+
+    if x == 0 {
+        #if  do_sin && do_cos  return 0, 1;
+        #if  do_sin && !do_cos return 0, 0;
+        #if !do_sin && do_cos  return 0, 1;
     }
 
-    /* make argument positive but save the sign */
-    negate : s64 = 0;
+    sf := reinterp(s64, x);
+    exponent := cast(s32) ((sf >> 52) & 0x7ff);
+    if exponent == 0x7ff {
+        if isnan(x) return x, x;
+        return FLOAT64_NAN, FLOAT64_NAN;
+    }
+
+    /* make argument positive but save the sign (for sin only; cos is even) */
+    #if do_sin  sin_negate : s64 = 0;
+    #if do_cos  cos_negate : s64 = 0;
     {
         flint: FloatInt64 = ---;
-flint._float64 = x;
-        #if IS_SIN  negate = xx(flint._u64 >> 63);
+        flint._float64 = x;
+        #if do_sin  sin_negate = xx(flint._u64 >> 63);
         flint._u64 &= 0x7fff_ffff_ffff_ffff;
         x = flint._float64;
     }
 
+    if x > LOSSTH return 0, 0;
 
-    if x > LOSSTH {
-        // :MathError
-	    // mtherr( "sin", TLOSS );
-	    return 0;
-    }
-
-
-    // We know x is not negative.
-    // So taking the floor is the same as casting to int (casts round toward 0,
-    // but when you're always positive, that is the floor).
-    // Here we cast to s64, which will not preserve input angles greater than
-    // 2**64, but, we don't have enough precision up there to sensibly perform
-    // trig anyway -- and this algorithm already bailed out if the input angle
-    // is higher than LOSSTH, which is only about 1 billion, way less than
-    // 2**64.
     j := cast(s64)(x/PIO4);
-
-    /* map zeros to origin */
     j += (j & 1);
-
     y := cast(float64) j;
-
     j = j & 0b111;
 
     /* reflect in x axis */
+    #if do_sin  sin_negate ^= (j >> 2);
+    #if do_cos  cos_negate  = (j >> 2);
 
-    negate ^= (j >> 2);
-    j = j & 2;  // Semi-redundant with & 6 above?!?
-
-    // When we get to this point, j can only be 0 or 2.
-    // Each increment of j represents 45 degrees, so 0 and 2 are one quadrant apart.
-    // sin and cos want the same behavior, offset by one quadrant.
-    #if !IS_SIN {
-        // Here we wanted to do:
-        //     if j  negate ^= 1;
-        // But j can only be 2 or 0, so we toggle by j >> 1.
-        negate ^= (j >> 1);
-        j = xx !j;   // Should get optimized out alongside the if below.
+    sin_j := j & 2;
+    #if do_cos {
+        // cos is offset by one quadrant from sin
+        cos_negate ^= (sin_j >> 1);
+        cos_j := !sin_j;
     }
 
     /* Extended precision modular arithmetic */
-
     z := ((x - y * DP1) - y * DP2) - y * DP3;
     zz := z * z;
 
-    r: float64 = ---;
-    if j  r = 1.0 - zz*.5 + zz * zz * polynomial_eval_coscof5(zz);
-    else  r = z  +  z * (zz * polynomial_eval_sincof5(zz));
+    // Evaluate both polynomials from the shared reduced argument
+    cos_poly := 1.0 - zz*0.5 + zz * zz * polynomial_eval_coscof5(zz);
+    sin_poly := z + z * (zz * polynomial_eval_sincof5(zz));
 
+    // Select which polynomial goes to which output based on octant
+    #if do_sin {
+        sin_r: float64 = ---;
+        if sin_j { sin_r = cos_poly; } else { sin_r = sin_poly; }
+    }
+    #if do_cos {
+        cos_r: float64 = ---;
+        if cos_j { cos_r = cos_poly; } else { cos_r = sin_poly; }
+    }
 
-    flint: FloatInt64 = ---;
-    flint._float64 = r;
-    flint._u64 ^= xx,no_check(negate << 63);
-    return flint._float64;
+    // Apply sign bits
+    #if do_sin {
+        sin_flint: FloatInt64 = ---;
+        sin_flint._float64 = sin_r;
+        sin_flint._u64 ^= xx,no_check(sin_negate << 63);
+    }
+    #if do_cos {
+        cos_flint: FloatInt64 = ---;
+        cos_flint._float64 = cos_r;
+        cos_flint._u64 ^= xx,no_check(cos_negate << 63);
+    }
+
+    #if do_sin && do_cos  return sin_flint._float64, cos_flint._float64;
+    #if do_sin && !do_cos return sin_flint._float64, 0;
+    #if !do_sin && do_cos return 0, cos_flint._float64;
 }
 
-sin :: (x: float32) -> float32 { return cast(float32) sin(cast(float64) x); }    
-sin :: (x: float64) -> float64 { // TODO: replace sin
-    return inline sin_or_cos(x, true);
-}
-
-cos :: (x: float32) -> float32 { return cast(float32) cos(cast(float64) x); } 
-cos :: (x: float64) -> float64 { // TODO: replace cos
-    return inline sin_or_cos(x, false);
+tan :: inline (y: float32) -> float32 { return cast(float32) tan(cast(float64)y); } 
+tan :: inline (x: float64) -> float64 {
+    s,c := sincos(x, true, true);
+    return s/c;
 }
 
 atan :: inline (y: float32) -> float32 { return cast(float32) atan(cast(float64)y); } 

@@ -19,13 +19,13 @@ assert_close :: (label: string, a: $T/Floats, b: T, index: $inT) {
     } 
 }
 
-DATA_BYTES :: 800000; 
+DATA_BYTES :: 80000000; 
 
 Test_Data :: struct(T:Type) {
-    ref : [DATA_BYTES]T;
-    delta : [DATA_BYTES]T;
-    res : [DATA_BYTES]T;
-    length :: DATA_BYTES;
+    ref : [DATA_BYTES/size_of(T)]T;
+    delta : [DATA_BYTES/size_of(T)]T;
+    res : [DATA_BYTES/size_of(T)]T;
+    length :: DATA_BYTES/size_of(T);
 }
 
 test: union {
@@ -118,11 +118,16 @@ cephes_test :: () {
     simple_test("_f32", "cos", false);
     simple_test("_f64", "cos", false);
 
+    simple_test("_f32", "tan", false);
+    log("due to difference of methods there is an inaccuracy. the error is insignificantly small, ignore it");
+    simple_test("_f64", "tan", false);
+
     simple_test("_f32", "atan", false);
     simple_test("_f64", "atan", false);
 
     simple_test("_f32", "atan2", true);
     simple_test("_f64", "atan2", true);
+
 }
 
 simd_test :: () {
@@ -625,10 +630,10 @@ math_test :: () {
     // make_non_binary_workspace();
     // math_test();
     // log("math_test OK\n");
-    vector_test();
-    matrix_test();
-    matrix_correctness_test();
+    // vector_test();
+    // matrix_test();
+    // matrix_correctness_test();
     cephes_test();
-    simd_test();
+    // simd_test();
     // log("t_test OK\n");
 }

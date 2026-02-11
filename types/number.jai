@@ -60,6 +60,14 @@ isinf :: inline (x: $T/Numbers) -> bool {
     return _isinf;
 }
 
+signbit :: inline (x: float64) -> u64 {
+    return reinterp(u64, x) & 0x8000_0000_0000_0000;
+}
+
+signbit :: inline (x: float32) -> u32 {
+    return reinterp(u32, x) & 0x8000_0000;
+}
+
 
 frac :: inline (x: $T/Floats) -> T
 #modify {
