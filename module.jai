@@ -2,7 +2,7 @@
 #load "types/vector.jai";
 #load "types/matrix.jai";
 #load "types/quaternion.jai";
-#load "types/euler.jai";
+#load "types/rotator.jai";
 #load "transform.jai";
 
 #load "simd/common.jai";
@@ -10,26 +10,24 @@
 #load "simd/matrix.jai";
 
 #import "Basic";
-#import "Jay_Utils";
+#import,file "../Jay_Utils/module.jai";
 
-// #load "test.jai";
+// Scalar constants from standard Math module
 
-// Scalar constants from standart Math module
+TAU     :: 0h40c9_0fdb;
+TAU64   :: 0h4019_21fb_5444_2d18;
 
-TAU     :: 0h4019_21fb_5444_2d18;
-TAU32   :: 0h40c9_0fdb;
-
-PI      :: 0h4009_21fb_5444_2d18;
-PI32    :: 0h4049_0fdb;
+PI      :: 0h4049_0fdb;
+PI64    :: 0h4009_21fb_5444_2d18;
 
 PI_2    :: PI/2;
-PI32_2  :: PI32/2;
+PI64_2  :: PI64/2;
 
 PI_4    :: PI/4;
-PI32_4  :: PI32/4;
+PI64_4  :: PI64/4;
 
 INV_PI  :: 1/PI;
-INV_PI32:: 1/PI32;
+INV_PI64:: 1/PI64;
 
 FLOAT16_MAX : float :   65504.0;
 
@@ -56,10 +54,10 @@ S64_MIN :s64:   0x8000_0000_0000_0000;
 S64_MAX :s64:   0x7fff_ffff_ffff_ffff;
 U64_MAX :u64:   0xffff_ffff_ffff_ffff;
 
-DEG_TO_RAD :float64: PI/180.0;
-RAD_TO_DEG :float64: 180.0/PI;
+DEG_TO_RAD :float32: PI/180.0;
+RAD_TO_DEG :float32: 180.0/PI;
 
-EPSILON_32 :float32: 0h33FF_FFD7;
+EPSILON    :float32: 0h33FF_FFD7;
 EPSILON_64 :float64: 0h3CB0_0001_DD9D_C7D3;
 
 

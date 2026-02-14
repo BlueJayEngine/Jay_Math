@@ -1,13 +1,17 @@
 
-Mat2 :: Matrix(2, 2, float64);
-Mat3 :: Matrix(3, 3, float64);
-Mat4 :: Matrix(4, 4, float64);
-Mat4x3 :: Matrix(4, 3, float64);
+Mat2d :: Matrix(2, 2, float64);
+Mat3d :: Matrix(3, 3, float64);
+Mat4d :: Matrix(4, 4, float64);
+Mat4x3d :: Matrix(4, 3, float64);
 
-Mat2f :: Matrix(2, 2, float32);
-Mat3f :: Matrix(3, 3, float32);
-Mat4f :: Matrix(4, 4, float32);
-Mat4x3f :: Matrix(4, 3, float32);
+Mat2 :: Matrix(2, 2, float32);
+Mat3 :: Matrix(3, 3, float32);
+Mat4 :: Matrix(4, 4, float32);
+Mat4x3 :: Matrix(4, 3, float32);
+
+Matrix2 :: Type.[Mat2, Mat2d];
+Matrix3 :: Type.[Mat3, Mat3d];
+Matrix4 :: Type.[Mat3, Mat3d];
 
 Matrix :: struct(COL: u8, ROW: u8, T: Type) {
     N :: COL * ROW;
@@ -51,7 +55,7 @@ Matrix :: struct(COL: u8, ROW: u8, T: Type) {
 }
 
 Simd_Matrix :: struct (T: Type, N: s64) {
-    seg32, seg16, tail :: #run get_simd_magic(T, N);
+    seg32, seg16, tail :: #run,stallable get_simd_magic(T, N);
 
     #if seg32 > 0 
         simd32: [seg32][32/size_of(T)] T;
@@ -173,46 +177,517 @@ inverse :: inline (mat: Matrix) -> type_of(mat) {
     return result;
 }
 
+// ============================================================================
+//  Translation (4-column matrices only — affine transforms)
+// ============================================================================
+
+// Apply: add displacement to existing translation column
 translate :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
-    #assert(MT.COL > 3);
-    
-    #if MT.T != VT.T {
-        mat.cells[0][3] += xx vec.x;
-        mat.cells[1][3] += xx vec.y;
-        mat.cells[2][3] += xx vec.z;
-    } else {
-        mat.cells[0][3] += vec.x;
-        mat.cells[1][3] += vec.y;
-        mat.cells[2][3] += vec.z;
-    }
+    #assert MT.COL > 3 "translate requires a matrix with 4+ columns";
+    #assert VT.N >= 3  "translate requires a 3d vector";
+
+    mat.cells[0][3] += xx vec.x;
+    mat.cells[1][3] += xx vec.y;
+    mat.cells[2][3] += xx vec.z;
 }
 
-translate :: (mat: $MT/Matrix, vec: Vector) -> MT {
+translate :: inline (mat: $MT/Matrix, vec: $VT/Vector) -> MT {
     result: MT = mat;
     translate(*result, vec);
     return result;
 }
 
-set_translation :: inline (mat: *$MT/Matrix, vec: $VT/Vectors3) {
-    #assert MT.COL > 3 "Matrix has no capacity to store 3d translation";
+// Set: overwrite translation column, leave rest untouched
+set_translation :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
+    #assert MT.COL > 3 "set_translation requires a matrix with 4+ columns";
+    #assert VT.N >= 3  "set_translation requires a 3d vector";
 
-    mat.cells[0][3] = vec.x;
-    mat.cells[1][3] = vec.y;
-    mat.cells[2][3] = vec.z;
+    mat.cells[0][3] = xx vec.x;
+    mat.cells[1][3] = xx vec.y;
+    mat.cells[2][3] = xx vec.z;
 }
 
-set_translation :: (mat: $MT/Matrix, vec: $VT/Vectors3) -> MT {
-    result: MT;
+set_translation :: inline (mat: $MT/Matrix, vec: $VT/Vector) -> MT {
+    result: MT = mat;
     set_translation(*result, vec);
     return result;
 }
 
-rotate :: (mat: $MT/Matrix, rot: Rot) -> MT {
-    result: MT;
-    rotate(*result, rot);
+// Make: identity with translation set
+make_translation :: inline (vec: $VT/Vector) -> $RT #modify {
+    RT = ifx vec_element_size(VT) >= 8 then Mat4d else Mat4;
+    return true;
+} {
+    result := RT.identity();
+    result.cells[0][3] = xx vec.x;
+    result.cells[1][3] = xx vec.y;
+    result.cells[2][3] = xx vec.z;
     return result;
 }
 
-rotate :: (mat: *$MT/Matrix, rot: Rot) {
-    mat.* *= to_matrix(rot);
+// ============================================================================
+//  Rotation
+// ============================================================================
+
+// --- 2D (Mat2 / Mat2f) ---
+
+// Make: create a 2d rotation matrix from angle
+make_rotation :: inline (angle: $T/Numbers) -> $RT #modify {
+    RT = ifx array_find(Numbers64, T) then Mat2d else Mat2;
+    return true;
+} {
+    s, c := sincos(cast(float64) angle, true, true);
+    return RT.{values = .[xx c, xx -s, xx s, xx c]};
+}
+
+// Set: overwrite a 2x2 matrix with rotation
+set_rotation :: inline (mat: *$MT/Matrix, angle: $T/Numbers) {
+    #assert MT.COL == 2 && MT.ROW == 2 "2d set_rotation requires a 2x2 matrix";
+
+    s, c := sincos(cast(float64) angle, true, true);
+    mat._11 = xx c;  mat._12 = xx -s;
+    mat._21 = xx s;  mat._22 = xx  c;
+}
+
+set_rotation :: inline (mat: $MT/Matrix, angle: $T/Numbers) -> MT {
+    result: MT = mat;
+    set_rotation(*result, angle);
+    return result;
+}
+
+// Apply: multiply existing 2x2 by a rotation
+rotate :: inline (mat: *$MT/Matrix, angle: $T/Numbers) {
+    #assert MT.COL == 2 && MT.ROW == 2 "2d rotate requires a 2x2 matrix";
+
+    rot := make_rotation(angle);
+    mat.* = inline simd_mat_mult(mat.*, rot);
+}
+
+rotate :: inline (mat: $MT/Matrix, angle: $T/Numbers) -> MT {
+    result: MT = mat;
+    rotate(*result, angle);
+    return result;
+}
+
+// --- 3D (Mat3 / Mat3d) — rotation around an arbitrary axis ---
+
+// Make: create a 3d rotation matrix (Rodrigues' formula)
+//   axis must be unit length
+make_rotation :: inline (angle: $T/Numbers, axis: $VT/Vector) -> $RT #modify {
+    RT = ifx (array_find(Numbers64, T) || vec_element_size(VT) >= 8) then Mat3d else Mat3;
+    return true;
+} {
+    s, c := sincos(cast(float64) angle, true, true);
+    t: float64 = 1.0 - c;
+
+    x := cast(float64) axis.x;
+    y := cast(float64) axis.y;
+    z := cast(float64) axis.z;
+
+    result: RT;
+    result._11 = xx (t * x * x + c);
+    result._12 = xx (t * x * y - s * z);
+    result._13 = xx (t * x * z + s * y);
+
+    result._21 = xx (t * x * y + s * z);
+    result._22 = xx (t * y * y + c);
+    result._23 = xx (t * y * z - s * x);
+
+    result._31 = xx (t * x * z - s * y);
+    result._32 = xx (t * y * z + s * x);
+    result._33 = xx (t * z * z + c);
+
+    return result;
+}
+
+// Set: overwrite upper-left 3x3 of a matrix with rotation
+set_rotation :: inline (mat: *$MT/Matrix, angle: $T/Numbers, axis: $VT/Vector) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "3d set_rotation requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "set_rotation requires a 3d axis vector";
+
+    s, c := sincos(cast(float64) angle, true, true);
+    t: float64 = 1.0 - c;
+
+    x := cast(float64) axis.x;
+    y := cast(float64) axis.y;
+    z := cast(float64) axis.z;
+
+    mat.cells[0][0] = xx (t * x * x + c);
+    mat.cells[0][1] = xx (t * x * y - s * z);
+    mat.cells[0][2] = xx (t * x * z + s * y);
+
+    mat.cells[1][0] = xx (t * x * y + s * z);
+    mat.cells[1][1] = xx (t * y * y + c);
+    mat.cells[1][2] = xx (t * y * z - s * x);
+
+    mat.cells[2][0] = xx (t * x * z - s * y);
+    mat.cells[2][1] = xx (t * y * z + s * x);
+    mat.cells[2][2] = xx (t * z * z + c);
+}
+
+set_rotation :: inline (mat: $MT/Matrix, angle: $T/Numbers, axis: $VT/Vector) -> MT {
+    result: MT = mat;
+    set_rotation(*result, angle, axis);
+    return result;
+}
+
+// Apply: multiply existing matrix by a 3d rotation
+rotate :: inline (mat: *$MT/Matrix, angle: $T/Numbers, axis: $VT/Vector) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "3d rotate requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "rotate requires a 3d axis vector";
+
+    rot := make_rotation(angle, axis);
+
+    // Multiply the upper-left 3x3 block of mat by rot
+    // result[i][j] = sum_k mat[i][k] * rot[k][j], for j in 0..2
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..MT.ROW-1 {
+            for j: 0..2 {
+                print_to_builder(*builder, "\t_r%1_%2 := mat.cells[%1][0] * rot.cells[0][%2] + mat.cells[%1][1] * rot.cells[1][%2] + mat.cells[%1][2] * rot.cells[2][%2];\n", i, j);
+            }
+        }
+        for i: 0..MT.ROW-1 {
+            for j: 0..2 {
+                print_to_builder(*builder, "\tmat.cells[%1][%2] = _r%1_%2;\n", i, j);
+            }
+        }
+        return builder_to_string(*builder);
+    }
+}
+
+rotate :: inline (mat: $MT/Matrix, angle: $T/Numbers, axis: $VT/Vector) -> MT {
+    result: MT = mat;
+    rotate(*result, angle, axis);
+    return result;
+}
+
+// ============================================================================
+//  Face (orient matrix to look along a direction)
+// ============================================================================
+
+// Make: build an orientation matrix from direction and up vectors
+//   forward = normalize(direction), right = normalize(cross(forward, up)), actual_up = cross(right, forward)
+//   Row-major layout: rows are right, actual_up, -forward (OpenGL-style look direction)
+make_face :: inline (direction: $VT/Vector, up: VT) -> $RT #modify {
+    RT = ifx vec_element_size(VT) >= 8 then Mat3d else Mat3;
+    return true;
+} {
+    fwd := direction;
+    normalize(*fwd);
+
+    right := cross3(fwd, up);
+    normalize(*right);
+
+    actual_up := cross3(right, fwd);
+
+    result: RT;
+    // Row 0: right
+    result.cells[0][0] = xx right.x;
+    result.cells[0][1] = xx right.y;
+    result.cells[0][2] = xx right.z;
+    // Row 1: up
+    result.cells[1][0] = xx actual_up.x;
+    result.cells[1][1] = xx actual_up.y;
+    result.cells[1][2] = xx actual_up.z;
+    // Row 2: -forward
+    result.cells[2][0] = xx -fwd.x;
+    result.cells[2][1] = xx -fwd.y;
+    result.cells[2][2] = xx -fwd.z;
+
+    return result;
+}
+
+// Set: overwrite upper-left 3x3 with face orientation
+set_face :: inline (mat: *$MT/Matrix, direction: $VT/Vector, up: VT) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "set_face requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "set_face requires 3d vectors";
+
+    fwd := direction;
+    normalize(*fwd);
+
+    right := cross3(fwd, up);
+    normalize(*right);
+
+    actual_up := cross3(right, fwd);
+
+    mat.cells[0][0] = xx right.x;
+    mat.cells[0][1] = xx right.y;
+    mat.cells[0][2] = xx right.z;
+
+    mat.cells[1][0] = xx actual_up.x;
+    mat.cells[1][1] = xx actual_up.y;
+    mat.cells[1][2] = xx actual_up.z;
+
+    mat.cells[2][0] = xx -fwd.x;
+    mat.cells[2][1] = xx -fwd.y;
+    mat.cells[2][2] = xx -fwd.z;
+}
+
+set_face :: inline (mat: $MT/Matrix, direction: $VT/Vector, up: VT) -> MT {
+    result: MT = mat;
+    set_face(*result, direction, up);
+    return result;
+}
+
+// Apply: multiply existing matrix by a face orientation
+face :: inline (mat: *$MT/Matrix, direction: $VT/Vector, up: VT) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "face requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "face requires 3d vectors";
+
+    orientation := make_face(direction, up);
+
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..MT.ROW-1 {
+            for j: 0..2 {
+                print_to_builder(*builder, "\t_r%1_%2 := mat.cells[%1][0] * orientation.cells[0][%2] + mat.cells[%1][1] * orientation.cells[1][%2] + mat.cells[%1][2] * orientation.cells[2][%2];\n", i, j);
+            }
+        }
+        for i: 0..MT.ROW-1 {
+            for j: 0..2 {
+                print_to_builder(*builder, "\tmat.cells[%1][%2] = _r%1_%2;\n", i, j);
+            }
+        }
+        return builder_to_string(*builder);
+    }
+}
+
+face :: inline (mat: $MT/Matrix, direction: $VT/Vector, up: VT) -> MT {
+    result: MT = mat;
+    face(*result, direction, up);
+    return result;
+}
+
+// ============================================================================
+//  Scale
+// ============================================================================
+
+// Make 2d: diagonal scale matrix
+make_scale :: inline (sx: $T/Numbers, sy: T) -> $RT #modify {
+    RT = ifx array_find(Numbers64, T) then Mat2d else Mat2;
+    return true;
+} {
+    result: RT;
+    result._11 = xx sx;  result._12 = 0;
+    result._21 = 0;      result._22 = xx sy;
+    return result;
+}
+
+// Make 3d: diagonal scale matrix from vector
+make_scale :: inline (vec: $VT/Vector) -> $RT #modify {
+    RT = ifx vec_element_size(VT) >= 8 then Mat3d else Mat3;
+    return true;
+} {
+    result: RT;
+    result.cells[0][0] = xx vec.x;
+    result.cells[1][1] = xx vec.y;
+    result.cells[2][2] = xx vec.z;
+    return result;
+}
+
+// Set 2d: overwrite diagonal with scale factors
+set_scale :: inline (mat: *$MT/Matrix, sx: $T/Numbers, sy: T) {
+    #assert MT.COL >= 2 && MT.ROW >= 2 "set_scale requires at least a 2x2 matrix";
+
+    mat.cells[0][0] = xx sx;
+    mat.cells[1][1] = xx sy;
+}
+
+set_scale :: inline (mat: $MT/Matrix, sx: $T/Numbers, sy: T) -> MT {
+    result: MT = mat;
+    set_scale(*result, sx, sy);
+    return result;
+}
+
+// Set 3d: overwrite diagonal with scale vector
+set_scale :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "set_scale requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "set_scale requires a 3d vector";
+
+    mat.cells[0][0] = xx vec.x;
+    mat.cells[1][1] = xx vec.y;
+    mat.cells[2][2] = xx vec.z;
+}
+
+set_scale :: inline (mat: $MT/Matrix, vec: $VT/Vector) -> MT {
+    result: MT = mat;
+    set_scale(*result, vec);
+    return result;
+}
+
+// Apply 2d: multiply existing diagonal by scale factors
+scale :: inline (mat: *$MT/Matrix, sx: $T/Numbers, sy: T) {
+    #assert MT.COL >= 2 && MT.ROW >= 2 "scale requires at least a 2x2 matrix";
+
+    for row: 0..MT.ROW-1 {
+        mat.cells[row][0] *= xx sx;
+        mat.cells[row][1] *= xx sy;
+    }
+}
+
+scale :: inline (mat: $MT/Matrix, sx: $T/Numbers, sy: T) -> MT {
+    result: MT = mat;
+    scale(*result, sx, sy);
+    return result;
+}
+
+// Apply 3d: multiply columns by scale vector components
+scale :: inline (mat: *$MT/Matrix, vec: $VT/Vector) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "scale requires at least a 3x3 matrix";
+    #assert VT.N >= 3 "scale requires a 3d vector";
+
+    for row: 0..MT.ROW-1 {
+        mat.cells[row][0] *= xx vec.x;
+        mat.cells[row][1] *= xx vec.y;
+        mat.cells[row][2] *= xx vec.z;
+    }
+}
+
+scale :: inline (mat: $MT/Matrix, vec: $VT/Vector) -> MT {
+    result: MT = mat;
+    scale(*result, vec);
+    return result;
+}
+
+// ============================================================================
+//  Shear
+// ============================================================================
+
+// 2D shear: shx shears along x (by y), shy shears along y (by x)
+//   | 1    shx |
+//   | shy  1   |
+
+// Make 2d
+make_shear :: inline (shx: $T/Numbers, shy: T) -> $RT #modify {
+    RT = ifx array_find(Numbers64, T) then Mat2d else Mat2;
+    return true;
+} {
+    result := RT.identity();
+    result._12 = xx shx;
+    result._21 = xx shy;
+    return result;
+}
+
+// 3D shear: six components — each pair shears one axis by the other two
+//   | 1    xy   xz  |
+//   | yx   1    yz  |
+//   | zx   zy   1   |
+
+// Make 3d
+make_shear :: inline (xy: $T/Numbers, xz: T, yx: T, yz: T, zx: T, zy: T) -> $RT #modify {
+    RT = ifx array_find(Numbers64, T) then Mat3d else Mat3;
+    return true;
+} {
+    result := RT.identity();
+    result._12 = xx xy;  result._13 = xx xz;
+    result._21 = xx yx;  result._23 = xx yz;
+    result._31 = xx zx;  result._32 = xx zy;
+    return result;
+}
+
+// Set 2d
+set_shear :: inline (mat: *$MT/Matrix, shx: $T/Numbers, shy: T) {
+    #assert MT.COL >= 2 && MT.ROW >= 2 "set_shear requires at least a 2x2 matrix";
+
+    mat.cells[0][0] = 1;  mat.cells[0][1] = xx shx;
+    mat.cells[1][0] = xx shy;  mat.cells[1][1] = 1;
+}
+
+set_shear :: inline (mat: $MT/Matrix, shx: $T/Numbers, shy: T) -> MT {
+    result: MT = mat;
+    set_shear(*result, shx, shy);
+    return result;
+}
+
+// Set 3d
+set_shear :: inline (mat: *$MT/Matrix, xy: $T/Numbers, xz: T, yx: T, yz: T, zx: T, zy: T) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "set_shear requires at least a 3x3 matrix";
+
+    mat.cells[0][0] = 1;      mat.cells[0][1] = xx xy;  mat.cells[0][2] = xx xz;
+    mat.cells[1][0] = xx yx;  mat.cells[1][1] = 1;      mat.cells[1][2] = xx yz;
+    mat.cells[2][0] = xx zx;  mat.cells[2][1] = xx zy;  mat.cells[2][2] = 1;
+}
+
+set_shear :: inline (mat: $MT/Matrix, xy: $T/Numbers, xz: T, yx: T, yz: T, zx: T, zy: T) -> MT {
+    result: MT = mat;
+    set_shear(*result, xy, xz, yx, yz, zx, zy);
+    return result;
+}
+
+// Apply 2d: multiply existing matrix by shear
+shear :: inline (mat: *$MT/Matrix, shx: $T/Numbers, shy: T) {
+    #assert MT.COL >= 2 && MT.ROW >= 2 "shear requires at least a 2x2 matrix";
+
+    for row: 0..MT.ROW-1 {
+        c0 := mat.cells[row][0];
+        c1 := mat.cells[row][1];
+        mat.cells[row][0] = c0 + c1 * xx shy;
+        mat.cells[row][1] = c0 * xx shx + c1;
+    }
+}
+
+shear :: inline (mat: $MT/Matrix, shx: $T/Numbers, shy: T) -> MT {
+    result: MT = mat;
+    shear(*result, shx, shy);
+    return result;
+}
+
+// Apply 3d: multiply existing matrix by 3d shear
+shear :: inline (mat: *$MT/Matrix, xy: $T/Numbers, xz: T, yx: T, yz: T, zx: T, zy: T) {
+    #assert MT.COL >= 3 && MT.ROW >= 3 "shear requires at least a 3x3 matrix";
+
+    for row: 0..MT.ROW-1 {
+        c0 := mat.cells[row][0];
+        c1 := mat.cells[row][1];
+        c2 := mat.cells[row][2];
+        mat.cells[row][0] = c0 + c1 * xx yx + c2 * xx zx;
+        mat.cells[row][1] = c0 * xx xy + c1 + c2 * xx zy;
+        mat.cells[row][2] = c0 * xx xz + c1 * xx yz + c2;
+    }
+}
+
+shear :: inline (mat: $MT/Matrix, xy: $T/Numbers, xz: T, yx: T, yz: T, zx: T, zy: T) -> MT {
+    result: MT = mat;
+    shear(*result, xy, xz, yx, yz, zx, zy);
+    return result;
+}
+
+// ============================================================================
+//  Helpers
+// ============================================================================
+
+#scope_file
+
+// Get the element size of a Vector type for use in #modify blocks
+// (can't access VT.T directly in #modify, so we inspect type_info)
+vec_element_size :: (VT: Type) -> s64 {
+    info := cast(*Type_Info_Struct) VT;
+    return info.members[0].type.runtime_size;
+}
+
+// 3d cross product — works on any vector with at least 3 components
+// Returns a vector of the same type with only xyz populated
+cross3 :: inline (a: $VT/Vector, b: VT) -> VT {
+    #assert VT.N >= 3 "cross3 requires 3d vectors";
+
+    result: VT;
+    result.x = a.y * b.z - a.z * b.y;
+    result.y = a.z * b.x - a.x * b.z;
+    result.z = a.x * b.y - a.y * b.x;
+    return result;
+}
+
+// In-place normalize for internal use (modifies vector, returns length)
+normalize :: inline (v: *$VT/Vector) {
+    sq := length(v.*);
+    if sq <= 0 return;
+    factor := 1.0 / sq;
+    #insert -> string {
+        builder: String_Builder;
+        for i: 0..VT.N-1 {
+            print_to_builder(*builder, "\tv.values[%] *= xx factor;", i);
+        }
+        return builder_to_string(*builder);
+    }
 }

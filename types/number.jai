@@ -7,7 +7,7 @@ trunc :: inline (x: $T/Numbers) -> T {
     return ifx x>0 then floor(x) else ceil(x);
 }
 
-is_nan_is_inf :: inline (x: float64) -> (isnan: bool, isinf: bool) {
+is_nan_is_inf :: inline (x: float64) -> (is_nan: bool, isinf: bool) {
     uf := (.*) cast(*u64)*x;
 
     unbiased_exponent := cast(s32) ((uf >> 52) & 0x7ff);  // @Feature: What we really mean here is "cast to whatever you think is a fast number, that is at least some size... [in this case it needs to be at least 11 bits!]
@@ -36,7 +36,7 @@ is_finite :: inline (x: float32) -> bool {
     return unbiased_exponent != 0xff;
 }
 
-is_nan_is_inf :: inline (x: float32) -> (isnan: bool, isinf: bool) {
+is_nan_is_inf :: inline (x: float32) -> (is_nan: bool, isinf: bool) {
     uf := reinterp(u32, x);
     unbiased_exponent := (uf >> 23) & 0xff;
     if unbiased_exponent == 0xff {
@@ -51,11 +51,11 @@ is_nan_is_inf :: inline (x: float32) -> (isnan: bool, isinf: bool) {
     return false, false;
 }
 
-isnan :: inline (x: $T/Numbers) -> bool {
+is_nan :: inline (x: $T/Numbers) -> bool {
     return is_nan_is_inf(x);
 }
 
-isinf :: inline (x: $T/Numbers) -> bool {
+is_inf :: inline (x: $T/Numbers) -> bool {
     _, _isinf := is_nan_is_inf(x);
     return _isinf;
 }
@@ -77,7 +77,7 @@ frac :: inline (x: $T/Floats) -> T
     return x - floor(x);
 }
 
-lerp :: inline (a: $T/Numbers, b: T, t: float64) -> T {
+lerp :: inline (a: $T/Numbers, b: T, t: float32) -> T {
     return a + (b - a) * t;
 }
 
@@ -119,7 +119,7 @@ epsilon :: inline ($T: Type) -> T #modify {
     return T == float32 || T == float64;
 }{
     #if T == float32 {
-        return EPSILON_32;
+        return EPSILON;
     } 
     #if T == float64 {
         return EPSILON_64;
@@ -277,7 +277,7 @@ sincos :: inline (x: float64, $do_sin: bool, $do_cos: bool) -> (sin_value: float
     sf := reinterp(s64, x);
     exponent := cast(s32) ((sf >> 52) & 0x7ff);
     if exponent == 0x7ff {
-        if isnan(x) return x, x;
+        if is_nan(x) return x, x;
         return FLOAT64_NAN, FLOAT64_NAN;
     }
 
@@ -413,25 +413,25 @@ atan2 :: (y: float64, x: float64) -> float64 {
     // unnecessary assignments to variables, 'else's that didn't need
     // to be there, etc!
     //
-    if isnan(x) return x;
-    if isnan(y) return y;
+    if is_nan(x) return x;
+    if is_nan(y) return y;
 
     if y == 0 {  // 0.0 compares as equal to -0.0, so .. yeah.
 	    if signbit(y) {
 		    if x > 0  return y;
-		    if x < 0  return -PI;
+		    if x < 0  return -PI64;
 
-			if signbit(x) return -PI;
+			if signbit(x) return -PI64;
 			return y;
 		} else {
             // y is +0 if we get here.
 		    if x == 0 {
-			    if signbit(x) return PI;
+			    if signbit(x) return PI64;
 			    return 0;
 			}
 
             if x > 0   return 0;
-            return PI;
+            return PI64;
 		}
 	}
     
@@ -441,19 +441,19 @@ atan2 :: (y: float64, x: float64) -> float64 {
 	}
     
     if x == INFINITY {
-	    if y == INFINITY  return 0.25 * PI;
-	    if y == -INFINITY return -0.25 * PI;
+	    if y == INFINITY  return 0.25 * PI64;
+	    if y == -INFINITY return -0.25 * PI64;
 	    if y < 0  	      return -0.0;
 
 	    return 0;
 	}
     
     if x == -INFINITY {
-	    if y == INFINITY   return 0.75 * PI;
-	    if y <= -INFINITY  return -0.75 * PI;
-	    if y >= 0          return PI;
+	    if y == INFINITY   return 0.75 * PI64;
+	    if y <= -INFINITY  return -0.75 * PI64;
+	    if y >= 0          return PI64;
         
-	    return -PI;
+	    return -PI64;
 	}
 
     if y ==  INFINITY return  PIO2;
@@ -471,14 +471,14 @@ atan2 :: (y: float64, x: float64) -> float64 {
 	}
 
     if y == 0 {
-	    if code & 2 return PI;
+	    if code & 2 return PI64;
 	    return 0;
 	}
 
     z := atan(y/x);
     
-    if      code == 2  z += PI;
-    else if code == 3  z -= PI;
+    if      code == 2  z += PI64;
+    else if code == 3  z -= PI64;
 
     if (z == 0) && (y < 0) z = -0.0;
     
@@ -560,7 +560,7 @@ acos :: inline (x: $T/Integers) -> T { return xx floor(acos(cast(float64)x) + 0.
 
 exp :: inline (y: float32) -> float32 { return cast(float32) exp(cast(float64)y); }
 exp :: inline (x: float64) -> float64 {
-    if isnan(x) return x;
+    if is_nan(x) return x;
     if x >  170.0 return FLOAT64_INFINITY;
     if x < -170.0 return 0;
 
@@ -601,7 +601,7 @@ exp :: inline (x: $T/Integers) -> T { return xx floor(exp(cast(float64)x) + 0.5)
 
 log :: inline (y: float32) -> float32 { return cast(float32) log(cast(float64)y); }
 log :: inline (x: float64) -> float64 {
-    if isnan(x) return x;
+    if is_nan(x) return x;
     if x == FLOAT64_INFINITY return x;
     if x <= 0 {
         if x == 0 return -FLOAT64_INFINITY;
@@ -672,7 +672,6 @@ log :: inline (x: $T/Integers) -> T { return xx floor(log(cast(float64)x) + 0.5)
 
 log2 :: inline (y: float32) -> float32 { return cast(float32) log2(cast(float64)y); }
 log2 :: inline (x: float64) -> float64 {
-    LOG2E :: 0h3ff7_1547_652b_82fe;  // 1/ln(2)
     return log(x) * LOG2E;
 }
 log2 :: inline (x: $T/Integers) -> T { return xx floor(log2(cast(float64)x) + 0.5); }
@@ -680,8 +679,8 @@ log2 :: inline (x: $T/Integers) -> T { return xx floor(log2(cast(float64)x) + 0.
 pow :: inline (y: float32, p: float32) -> float32 { return cast(float32) pow(cast(float64)y, cast(float64)p); }
 pow :: inline (x: float64, y: float64) -> float64 {
     if y == 0 return 1;
-    if isnan(x) return x;
-    if isnan(y) return y;
+    if is_nan(x) return x;
+    if is_nan(y) return y;
     if y == 1 return x;
     if x == 1 return 1;
 
@@ -747,6 +746,10 @@ pow :: inline (x: float64, y: float64) -> float64 {
 }
 pow :: inline (x: $T/Integers, y: T) -> T { return xx floor(pow(cast(float64)x, cast(float64)y) + 0.5); }
 
+
+#scope_module
+
+LOG2E :: 0h3ff7_1547_652b_82fe;
 
 #scope_file
 
