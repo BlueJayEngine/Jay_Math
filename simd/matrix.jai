@@ -88,23 +88,20 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
         bcast_inst := commands.broadcast;
         shuf_inst  := commands.shuf;
         mul_inst   := commands.mult;
-        add_inst   := commands.add;
-
-        asm_features := ifx is_f32 then "AVX, AVX2" else "AVX";
+        fma_inst   := commands.fma;
 
         SW :: SIMD_WIDTH;
         aligned :: ROW_TAIL == 0 && ROW_SEGS > 0;
 
-        print_to_builder(*builder, "\n//\tSIMD %x% % multiply — inline asm broadcast-mul-acc\n", ROW, COL, T.T);
+        print_to_builder(*builder, "\n//\tSIMD %x% % multiply — FMA interleaved broadcast-mul-acc\n", ROW, COL, T.T);
 
+        // ---- Load all B rows into locals ----
         if ROW_SEGS > 0 {
             for k: 0..COL-1 {
                 for seg: 0..ROW_SEGS-1 {
                     if aligned {
-                        // Direct overlay read — one load, straight to register
                         print_to_builder(*builder, "\tb_%_% := b._simd_data.simd16[%];\n", k, seg, k * ROW_SEGS + seg);
                     } else {
-                        // Pack from cells
                         base := seg * SW;
                         print_to_builder(*builder, "\tb_%_%: [SIMD_WIDTH] T.T = ---;  ", k, seg);
                         for lane: 0..SW-1 {
@@ -116,118 +113,128 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             }
         }
 
-        for i: 0..ROW-1 {
-            print_to_builder(*builder, "\n\t// Row %\n\t{\n", i);
-
-            // Load a's row segments
-            if ROW_SEGS > 0 {
+        // ---- Load all A rows into locals ----
+        if ROW_SEGS > 0 {
+            for i: 0..ROW-1 {
                 for seg: 0..ROW_SEGS-1 {
                     if aligned {
-                        print_to_builder(*builder, "\t\ta_seg_% := a._simd_data.simd16[%];\n", seg, i * ROW_SEGS + seg);
+                        print_to_builder(*builder, "\ta_%_% := a._simd_data.simd16[%];\n", i, seg, i * ROW_SEGS + seg);
                     } else {
                         base := seg * SW;
-                        print_to_builder(*builder, "\t\ta_seg_%: [SIMD_WIDTH] T.T = ---;  ", seg);
+                        print_to_builder(*builder, "\ta_%_%: [SIMD_WIDTH] T.T = ---;  ", i, seg);
                         for lane: 0..SW-1 {
-                            print_to_builder(*builder, "a_seg_%[%] = a.cells[%][%]; ", seg, lane, i, base + lane);
+                            print_to_builder(*builder, "a_%_%[%] = a.cells[%][%]; ", i, seg, lane, i, base + lane);
                         }
                         print_to_builder(*builder, "\n");
                     }
-                }
-
-                // Declare result segment locals
-                for seg: 0..ROW_SEGS-1 {
-                    print_to_builder(*builder, "\t\tr_%: [SIMD_WIDTH] T.T = ---;  \n", seg);
                 }
             }
+        }
 
-            if ROW_SEGS > 0 {
+        // ---- Declare result segment locals for all rows ----
+        if ROW_SEGS > 0 {
+            for i: 0..ROW-1 {
+                for seg: 0..ROW_SEGS-1 {
+                    print_to_builder(*builder, "\tr_%_%: [SIMD_WIDTH] T.T = ---;  \n", i, seg);
+                }
+            }
+        }
+
+        // ---- Broadcast locals for tail columns (a element outside SIMD segments) ----
+        if ROW_SEGS > 0 {
+            total_simd_cols := ROW_SEGS * SW;
+            for i: 0..ROW-1 {
                 for k: 0..COL-1 {
-                    k_seg := k / SW;
-                    if k_seg >= ROW_SEGS {
-                        print_to_builder(*builder, "\t\tbk_%: [SIMD_WIDTH] T.T = ---;  ", k);
+                    if k >= total_simd_cols {
+                        print_to_builder(*builder, "\tbk_%_%: [SIMD_WIDTH] T.T = ---;  ", i, k);
                         for lane: 0..SW-1 {
-                            print_to_builder(*builder, "bk_%[%] = a.cells[%][%]; ", k, lane, i, k);
+                            print_to_builder(*builder, "bk_%_%[%] = a.cells[%][%]; ", i, k, lane, i, k);
                         }
                         print_to_builder(*builder, "\n");
                     }
                 }
+            }
+        }
 
-                print_to_builder(*builder, "\t\t#asm % {\n", asm_features);
+        // ---- Single #asm block: column-major interleaved FMA across all rows ----
+        if ROW_SEGS > 0 {
+            print_to_builder(*builder, "\n\t#asm FMA, AVX, AVX2 {\n");
 
-                // Phase 1: all broadcasts
-                for k: 0..COL-1 {
-                    k_seg  := k / SW;
-                    k_lane := k % SW;
-                    in_seg := k_seg < ROW_SEGS;
+            for k: 0..COL-1 {
+                print_to_builder(*builder, "\n\t\t// Column %\n", k);
 
+                k_seg  := k / SW;
+                k_lane := k % SW;
+                in_seg := k_seg < ROW_SEGS;
+
+                // Phase 1: broadcast a[row][k] for all rows
+                for i: 0..ROW-1 {
                     if in_seg {
                         if k_lane == 0 {
-                            print_to_builder(*builder, "\t\t\t%.x bk%: vec, a_seg_%;\n", bcast_inst, k, k_seg);
+                            print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%;\n", bcast_inst, i, k, i, k_seg);
                         } else {
                             if is_f32 {
                                 shuf_imm := k_lane | (k_lane << 2) | (k_lane << 4) | (k_lane << 6);
-                                print_to_builder(*builder, "\t\t\t%.x bk%: vec, a_seg_%, a_seg_%, 0x%;\n", shuf_inst, k, k_seg, k_seg, formatInt(shuf_imm, base=16));
+                                print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
                             } else {
                                 shuf_imm := k_lane | (k_lane << 1);
-                                print_to_builder(*builder, "\t\t\t%.x bk%: vec, a_seg_%, a_seg_%, 0x%;\n", shuf_inst, k, k_seg, k_seg, formatInt(shuf_imm, base=16));
+                                print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
                             }
                         }
                     }
+                    // tail columns use bk_i_k locals loaded from memory
                 }
 
-                // Phase 2: multiply-accumulate chain
-                for k: 0..COL-1 {
-                    k_seg  := k / SW;
-                    in_seg := k_seg < ROW_SEGS;
-                    bk_ref := ifx in_seg then sprint("bk%", k) else sprint("bk_%", k);
+                // Phase 2: mul (k==0) or fma (k>0) for all rows × all segments
+                for i: 0..ROW-1 {
+                    bk_ref := ifx in_seg then sprint("bc_%_%", i, k) else sprint("bk_%_%", i, k);
 
                     for seg: 0..ROW_SEGS-1 {
                         if k == 0 {
-                            print_to_builder(*builder, "\t\t\t%.x r_%, %, b_%_%;\n", mul_inst, seg, bk_ref, k, seg);
+                            print_to_builder(*builder, "\t\t%.x r_%_%, %, b_%_%;\n", mul_inst, i, seg, bk_ref, k, seg);
                         } else {
-                            print_to_builder(*builder, "\t\t\t%.x pk%s%: vec, %, b_%_%;\n", mul_inst, k, seg, bk_ref, k, seg);
-                            print_to_builder(*builder, "\t\t\t%.x r_%, r_%, pk%s%;\n", add_inst, seg, seg, k, seg);
-                        }
-                    }
-                }
-
-                print_to_builder(*builder, "\t\t}\n");
-            }
-
-            // Scalar tail columns (outside asm)
-            if ROW_TAIL > 0 {
-                for k: 0..COL-1 {
-                    tail_base := ROW_SEGS * SW;
-                    for t: 0..ROW_TAIL-1 {
-                        col := tail_base + t;
-                        if k == 0 {
-                            print_to_builder(*builder, "\t\tresult.cells[%][%] = a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
-                        } else {
-                            print_to_builder(*builder, "\t\tresult.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
-                        }
-                    }
-                }
-            }
-
-            // Write SIMD result segments back
-            if ROW_SEGS > 0 {
-                if aligned {
-                    // Direct overlay write — one store from register
-                    for seg: 0..ROW_SEGS-1 {
-                        print_to_builder(*builder, "\t\tresult._simd_data.simd16[%] = r_%;\n", i * ROW_SEGS + seg, seg);
-                    }
-                } else {
-                    // Unpack to cells
-                    for seg: 0..ROW_SEGS-1 {
-                        base := seg * SW;
-                        for lane: 0..SW-1 {
-                            print_to_builder(*builder, "\t\tresult.cells[%][%] = r_%[%];\n", i, base + lane, seg, lane);
+                            print_to_builder(*builder, "\t\t%.x r_%_%, %, b_%_%;\n", fma_inst, i, seg, bk_ref, k, seg);
                         }
                     }
                 }
             }
 
             print_to_builder(*builder, "\t}\n");
+        }
+
+        // ---- Scalar tail columns (outside asm) ----
+        if ROW_TAIL > 0 {
+            for i: 0..ROW-1 {
+                tail_base := ROW_SEGS * SW;
+                for k: 0..COL-1 {
+                    for t: 0..ROW_TAIL-1 {
+                        col := tail_base + t;
+                        if k == 0 {
+                            print_to_builder(*builder, "\tresult.cells[%][%] = a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
+                        } else {
+                            print_to_builder(*builder, "\tresult.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- Write SIMD result segments back ----
+        if ROW_SEGS > 0 {
+            for i: 0..ROW-1 {
+                if aligned {
+                    for seg: 0..ROW_SEGS-1 {
+                        print_to_builder(*builder, "\tresult._simd_data.simd16[%] = r_%_%;\n", i * ROW_SEGS + seg, i, seg);
+                    }
+                } else {
+                    for seg: 0..ROW_SEGS-1 {
+                        base := seg * SW;
+                        for lane: 0..SW-1 {
+                            print_to_builder(*builder, "\tresult.cells[%][%] = r_%_%[%];\n", i, base + lane, i, seg, lane);
+                        }
+                    }
+                }
+            }
         }
 
         return builder_to_string(*builder);

@@ -172,6 +172,7 @@ Type_Commands :: struct {
     // matrix multiply support:
     shuf: string = "";       // lane shuffle (shufps/shufpd)
     broadcast: string = "";  // scalar broadcast into all XMM lanes (broadcastss/movddup)
+    fma: string = "";        // fused multiply-add: dest += src1 * src2 (fmadd231ps/pd)
 }
 
 t_commands := #run -> Table(s64, Type_Commands) {
@@ -319,6 +320,7 @@ t_commands := #run -> Table(s64, Type_Commands) {
         // matrix multiply:
         shuf = "shufps",
         broadcast = "broadcastss",  // AVX2, broadcasts low float32 to all 4 XMM lanes
+        fma = "fmadd231ps",        // FMA: dest += src1 * src2 (packed single)
     });
 
     table_add(*res, reinterp(s64, float64), .{
@@ -335,6 +337,7 @@ t_commands := #run -> Table(s64, Type_Commands) {
         // matrix multiply:
         shuf = "shufpd",
         broadcast = "movddup",      // SSE3, duplicates low float64 into both XMM lanes
+        fma = "fmadd231pd",        // FMA: dest += src1 * src2 (packed double)
     });
 
 
