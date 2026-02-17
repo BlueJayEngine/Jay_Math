@@ -46,7 +46,7 @@ simd_vec :: inline (a: Vector, b: type_of(a),  $op: Simd_Op) -> type_of(a) #no_a
 }
 
 simd_bach :: inline (a: [$N] $T, b: [N] T, $op: Simd_Op) -> [N] T {
-    result: [N] T = a;
+    result: [N] T = ---;
     #insert -> string {
         builder: String_Builder;
         
@@ -60,16 +60,19 @@ simd_bach :: inline (a: [$N] $T, b: [N] T, $op: Simd_Op) -> [N] T {
 
         bach_size :: size_of(T)*N;
 
-        log("% = % %*%", bach_size, T, size_of(T), N);
+        // log("% = % %*%", bach_size, T, size_of(T), N);
 
         print_to_builder(*builder, "#asm AVX, AVX2 {\n");
 
        
-
-        if bach_size > 16 {
-            print_to_builder(*builder, "\t%.y result, result, b;\n", command); 
+        log("bach_size %, size_of %", bach_size, size_of(type_of(a)));
+        if bach_size == 32 {
+            print_to_builder(*builder, "\t%.y res: vec, [*a];\n", commands.move);
+            print_to_builder(*builder, "\t%.y br: vec, [*b];\n", commands.move);
+            print_to_builder(*builder, "\t%.y res, res, br;\n", command); 
+            print_to_builder(*builder, "\t%.y [*result], res;\n", commands.move);
         } else {
-            print_to_builder(*builder, "\t%.x result, result, b;\n", command); 
+            print_to_builder(*builder, "\t%.x result, a, b;\n", command); 
         }
 
          print_to_builder(*builder, "}\n"); 
