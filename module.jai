@@ -1,9 +1,8 @@
 #load "types/number.jai";
 #load "types/vector.jai";
 #load "types/matrix.jai";
-#load "types/quaternion.jai";
 #load "types/rotator.jai";
-#load "transform.jai";
+#load "types/transform.jai";
 
 #load "simd/common.jai";
 #load "simd/vector.jai";

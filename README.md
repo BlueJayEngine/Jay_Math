@@ -1,53 +1,77 @@
 # Jay Math
 
-![Language](https://img.shields.io/badge/lang-JAI-orange.svg) ![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg) ![Badges](https://img.shields.io/badge/badges-included-green.svg)
+Math module. Vectors, matrices, quaternions, transforms, and scalar math — all with compile-time SIMD code generation.
 
-A compact math module for Jai, built for the Jay engine. It provides vectors, matrices, quaternions, transforms, and a pile of numeric helpers with SIMD-accelerated paths where possible.
+## Types
 
-## Minimal example
+**Vectors** — `Vector(N, T, AXES)` parametric struct. Named axis fields are generated from the `AXES` parameter, along with sub-vector overlays and all permutations of mixed scalar/vector constructors. SIMD-accelerated element-wise operators for float types, scalar fallback for integers.
+
+| float32 | float64 | s32 | s64 |
+|---------|---------|-----|-----|
+| `Vec2` `Vec3` `Vec4` | `Vec2d` `Vec3d` `Vec4d` | `Point2` `Point3` `Point4` | `Point2d` `Point3d` `Point4d` |
+
+Operations: `+` `-` `*` `/` `dot` `length` `length_sqr` `normalize` `lerp`, plus scalar-vector variants.
+
+**Matrices** — `Matrix(COL, ROW, T)` parametric struct with named fields (`_11`, `_12`, ...), flat `values[]` array, and `cells[][]` row-major access. SIMD element-wise add/sub, FMA-accelerated multiply (broadcast-mul-acc with compile-time instruction selection), closed-form cofactor inverse for 2×2/3×3/4×4, Gauss-Jordan fallback for larger.
+
+| float32 | float64 |
+|---------|---------|
+| `Mat2` `Mat3` `Mat4` `Mat4x3` | `Mat2d` `Mat3d` `Mat4d` `Mat4x3d` |
+
+Transform operations (make/set/apply pattern for each):
+- **translate** — 4-column affine translation
+- **rotate** — 2D angle or 3D axis-angle (Rodrigues)
+- **scale** — 2D scalar pair or 3D vector
+- **shear** — 2D (2 params) or 3D (6 params)
+- **face** — orient matrix along direction + up vector
+- **inverse** — cofactor expansion or Gauss-Jordan
+
+**Rotators** — Three interchangeable rotation representations with full conversion between all of them:
+
+- `Quat` — unit quaternion
+- `Rotator` / `Euler` — rotation vector in euler degrees (Roll, Pitch, Yaw)
+- `Radians` — same layout as Rotator but in radians
+
+Conversions: `to_matrix` `to_matrix4` `to_quat` `to_rotator` `to_radians`. Any representation can round-trip through any other. Matrix extraction uses Shepperd's method for numerical stability.
+
+**Transform** — TRS struct (translation `Vec3`, rotation `Quat`, scale `Vec3`). Converts to/from `Mat4` via `to_matrix` / `to_transform`.
+
+## Scalar Math
+
+Replaces the standard library math functions with Cephes-derived implementations. Hardware `sqrtss`/`sqrtsd` for sqrt, SSE `roundss`/`roundsd` for floor/ceil. All functions have `float32`, `float64`, and integer overloads.
+
+`sin` `cos` `tan` `asin` `acos` `atan` `atan2` `sqrt` `exp` `log` `log2` `pow` `floor` `ceil` `mod` `frac` `abs` `lerp` `grid_snap` `inv_sqrt` `is_nan` `is_inf` `is_finite` `signbit` `epsilon` `inf` `nan`
+
+Constants: `PI` `TAU` `DEG_TO_RAD` `RAD_TO_DEG` `EPSILON` and float/integer min/max/infinity/NaN values for all sizes.
+
+## SIMD
+
+Compile-time code generation, not runtime dispatch. The `#insert` metaprogramming generates SSE/AVX/FMA instructions based on type and element count at compile time. A type-dispatch table (`t_commands`) maps each numeric type to its instruction set (e.g., `float32` → `addps`/`mulps`/`fmadd231ps`, `s16` → `paddw`/`psubw`).
+
+Data is segmented into 16-byte XMM chunks with scalar tails for remainders. Matrix multiply uses broadcast-shuffle-FMA: broadcast `a[i][k]` into all lanes, FMA against pre-loaded `b` row segments, interleaved across all result rows in a single `#asm` block.
+
+## Example
 
 ```jai
-#import "Basic";
 #import "Jay_Math";
 
 main :: () {
-    a := Vec3d.{1, 2, 3};
-    b := Vec3d.{4, 5, 6};
+    a := Vec3.{1, 2, 3};
+    b := Vec3.{4, 5, 6};
 
     d := dot(a, b);
     len := length(a);
     mid := lerp(a, b, 0.5);
 
-    rot := Rot.{pitch = 30, roll = 0, yaw = 90};
-    rot_mat := to_matrix(rot); // Mat3 (degrees in, matrix out)
+    rot := Quat.{1, 0, 0, 0};  // identity
+    m := to_matrix(rot);        // -> Mat3
 
-    world := Mat4f.identity();
-    set_translation(*world, Vec3d .{10, 0, 2});
+    world := Mat4.identity();
+    set_translation(*world, Vec3.{10, 0, 2});
+    rotate(*world, PI/4, Vec3.{0, 1, 0});
 
-    t := Transform.{translation = Vec3d .{1, 2, 3}};
-
-    log("dot=% len=% mid=%", d, len, mid);
-    log("rot_mat=%", rot_mat);
-    log("world=%", world);
-    log("transform=%", t);
+    t := Transform.{translation = .{1, 2, 3}};
+    t_mat := to_matrix(t);      // -> Mat4 (TRS composition)
 }
 ```
 
-## Included
-
-- Vector types: `Vec2/3/4`, `Vec2f/3d/4f`, `Point2/3/4`, `Point2s/3s/4s`.
-- Matrix types: `Mat2/3/4`, `Mat4x3`, and float32 variants.
-- Quaternion and Euler: `Quat`, `Rot`/`Euler`, plus `to_matrix` helpers.
-- `Transform` struct for translation/rotation/scale.
-- Scalar helpers: `abs`, `lerp`, `floor`, `ceil`, `mod`, `epsilon`, `inf`, `nan`, `is_finite`, `is_nan`, `is_inf`, and more.
-- Constants: `PI`, `TAU`, `DEG_TO_RAD`, `RAD_TO_DEG`, float/integer limits.
-- SIMD paths for vector/matrix ops on supported types (AVX/AVX2), with scalar fallbacks for tails and unsupported ops.
-
-## Notes
-
-- `Rot` uses degrees; convert with `DEG_TO_RAD` if you are feeding radians.
-- Matrix ops include `identity`, `inverse`, `translate`, `set_translation`, and `rotate` (Mat3 with `Rot`).
-
-## License
-
-Apache 2.0. See `engine/Jay_Math/LICENSE`.
