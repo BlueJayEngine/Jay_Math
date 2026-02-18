@@ -10,6 +10,7 @@ Math :: #import "Math";
 #load "number.jai";
 #load "vector.jai";
 #load "matrix.jai";
+#load "rotator.jai";
 
 
 
@@ -72,6 +73,7 @@ main :: () {
     matrix_test();
     matrix_correctness_test();
     matrix_transform_test();
+    rotator_test();
     vector_test();
     cephes_test();
     simd_test();

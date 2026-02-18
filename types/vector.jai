@@ -329,6 +329,8 @@ operator + :: inline (a: Point4d, b: Point4d) -> Point4d  #no_abc #no_aoc {
     return result;
 }
 
+// FALLBACK END
+
 
 operator []= :: inline (vec: *Vector, index: s64, value: vec.T) {
     vec.values[index] = value;

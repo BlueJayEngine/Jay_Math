@@ -1,13 +1,27 @@
 # Jay Math
 
-![Language](https://img.shields.io/badge/lang-JAI-orange.svg) ![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg) ![Badges](https://img.shields.io/badge/badges-included-green.svg)
+Math library for the Jay engine. If you're building games or graphics stuff, this is what you reach for.
 
-A compact math module for Jai, built for the Jay engine. It provides vectors, matrices, quaternions, transforms, and a pile of numeric helpers with SIMD-accelerated paths where possible.
+## Design
 
-## Minimal example
+This started as a no-nonsense math lib and grew from there. The goal is to have the stuff you need for game dev without the bloat.
+
+**Float32 and float64 variants** - Most math is float32 for performance, but if you need precision (physics at large scales, etc) there's float64 versions of everything. The naming is consistent: plain types like `Vec3` are float32, the `d` suffix means double: `Vec3d` is float64. Same for matrices - `Mat4` is float32, `Mat4d` is float64.
+
+**Degrees for rotations** - Rotations use degrees because that's what humans think in. The `to_radians` helper converts if you're interfacing with something that speaks radians.
+
+**SIMD where it matters** - Vector and matrix operations use SIMD instructions when the compiler can make that happen. You don't need to think about it. If you're on older hardware or hit an edge case, there's always a scalar fallback.
+
+## What's here
+
+- **Vectors** - Vec2/3/4, Point2/3/4, all the usual operations (dot, cross, length, normalize, lerp)
+- **Matrices** - Mat2/3/4 and Mat4x3, the transforms you'd expect (translate, rotate, scale, inverse)
+- **Quaternions** - For smooth rotations, converting between quat/euler/matrix
+- **Transforms** - transform.jai at module root holds translation, rotation, and scale. Useful for game objects.
+
+## Quick look
 
 ```jai
-#import "Basic";
 #import "Jay_Math";
 
 main :: () {
@@ -19,35 +33,18 @@ main :: () {
     mid := lerp(a, b, 0.5);
 
     rot := Rot.{pitch = 30, roll = 0, yaw = 90};
-    rot_mat := to_matrix(rot); // Mat3 (degrees in, matrix out)
+    rot_mat := to_matrix(rot);
 
     world := Mat4f.identity();
-    set_translation(*world, Vec3d .{10, 0, 2});
+    set_translation(*world, Vec3d.{10, 0, 2});
 
-    t := Transform.{translation = Vec3d .{1, 2, 3}};
+    t := Transform.{translation = Vec3d.{1, 2, 3}};
 
-    log("dot=% len=% mid=%", d, len, mid);
-    log("rot_mat=%", rot_mat);
-    log("world=%", world);
+    log("dot=% len=%", d, len);
     log("transform=%", t);
 }
 ```
 
-## Included
-
-- Vector types: `Vec2/3/4`, `Vec2f/3d/4f`, `Point2/3/4`, `Point2s/3s/4s`.
-- Matrix types: `Mat2/3/4`, `Mat4x3`, and float32 variants.
-- Quaternion and Euler: `Quat`, `Rot`/`Euler`, plus `to_matrix` helpers.
-- `Transform` struct for translation/rotation/scale.
-- Scalar helpers: `abs`, `lerp`, `floor`, `ceil`, `mod`, `epsilon`, `inf`, `nan`, `is_finite`, `is_nan`, `is_inf`, and more.
-- Constants: `PI`, `TAU`, `DEG_TO_RAD`, `RAD_TO_DEG`, float/integer limits.
-- SIMD paths for vector/matrix ops on supported types (AVX/AVX2), with scalar fallbacks for tails and unsupported ops.
-
-## Notes
-
-- `Rot` uses degrees; convert with `DEG_TO_RAD` if you are feeding radians.
-- Matrix ops include `identity`, `inverse`, `translate`, `set_translation`, and `rotate` (Mat3 with `Rot`).
-
 ## License
 
-Apache 2.0. See `engine/Jay_Math/LICENSE`.
+Apache 2.0 - see LICENSE file
