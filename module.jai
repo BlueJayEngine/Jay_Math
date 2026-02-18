@@ -9,9 +9,6 @@
 #load "simd/matrix.jai";
 
 #import "Basic";
-#import,file "../Jay_Utils/module.jai";
-
-// Scalar constants from standard Math module
 
 TAU     :: 0h40c9_0fdb;
 TAU64   :: 0h4019_21fb_5444_2d18;
@@ -67,3 +64,10 @@ Integers :: Type.[s8, u8, s16, u16, s32, u32, s64, u64];
 Numbers16 :: Type.[s16, u16];
 Numbers32 :: Type.[s32, u32, float32];
 Numbers64 :: Type.[s64, u64, float64];
+
+
+reinterp :: inline ($toT: Type, x: $T) -> toT {
+    union { from : T = ---; to : toT = ---; }    
+    from = x;
+    return to;
+}
