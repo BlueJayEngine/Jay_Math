@@ -161,78 +161,6 @@ normalize :: inline (v: $VT/Vector, epsilon: VT.T = 0, fallback := VT.{}) -> VT.
 // FALLBACK FOR THE SLOW TYPES
 // TODO: HANDLE SLOW TYPES FASTER IN WITH SIMD
 
-operator - :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator * :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator / :: inline (a: Vec3d, b: Vec3d) -> Vec3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator - :: inline (a: Point3d, b: Point3d) -> Point3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Point3d, b: Point3d) -> Point3d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
 operator - :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     result: type_of(a) = ---;
     #insert -> string {
@@ -280,55 +208,6 @@ operator / :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     }
     return result;
 }
-
-operator - :: inline (a: Point2d, b: Point2d) -> Point2d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Point2d, b: Point2d) -> Point2d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator - :: inline (a: Point4d, b: Point4d) -> Point4d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
-operator + :: inline (a: Point4d, b: Point4d) -> Point4d  #no_abc #no_aoc {
-    result: type_of(a) = ---;
-    #insert -> string {
-        builder: String_Builder;
-        for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
-        }
-        return builder_to_string(*builder);
-    }
-    return result;
-}
-
 // FALLBACK END
 
 
