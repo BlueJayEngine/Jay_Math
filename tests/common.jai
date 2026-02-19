@@ -58,6 +58,8 @@ Test :: union {
 
     _Mat4d: Test_Data(Mat4d);
     _Mat4: Test_Data(Mat4);
+
+    _Vector3: Test_Data(Math.Vector3);
 };
 
 test: *Test;

@@ -71,11 +71,11 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             print_to_builder(*builder, "\n//\tScalar %x% multiply (no SIMD mult for %)\n", ROW, COL, T.T);
             for i: 0..ROW-1 {
                 for j: 0..COL-1 {
-                    print_to_builder(*builder, "\tresult.cells[%][%] = 0;\n", i, j);
+                    print_to_builder(*builder, "    result.cells[%][%] = 0;\n", i, j);
                 }
                 for j: 0..COL-1 {
                     for k: 0..COL-1 {
-                        print_to_builder(*builder, "\tresult.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, j, i, k, k, j);
+                        print_to_builder(*builder, "    result.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, j, i, k, k, j);
                     }
                 }
             }
@@ -100,10 +100,10 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             for k: 0..COL-1 {
                 for seg: 0..ROW_SEGS-1 {
                     if aligned {
-                        print_to_builder(*builder, "\tb_%_% := b._simd_data.simd16[%];\n", k, seg, k * ROW_SEGS + seg);
+                        print_to_builder(*builder, "    b_%_% := b._simd_data.simd16[%];\n", k, seg, k * ROW_SEGS + seg);
                     } else {
                         base := seg * SW;
-                        print_to_builder(*builder, "\tb_%_%: [SIMD_WIDTH] T.T = ---;  ", k, seg);
+                        print_to_builder(*builder, "    b_%_%: [SIMD_WIDTH] T.T = ---;  ", k, seg);
                         for lane: 0..SW-1 {
                             print_to_builder(*builder, "b_%_%[%] = b.cells[%][%]; ", k, seg, lane, k, base + lane);
                         }
@@ -118,10 +118,10 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             for i: 0..ROW-1 {
                 for seg: 0..ROW_SEGS-1 {
                     if aligned {
-                        print_to_builder(*builder, "\ta_%_% := a._simd_data.simd16[%];\n", i, seg, i * ROW_SEGS + seg);
+                        print_to_builder(*builder, "    a_%_% := a._simd_data.simd16[%];\n", i, seg, i * ROW_SEGS + seg);
                     } else {
                         base := seg * SW;
-                        print_to_builder(*builder, "\ta_%_%: [SIMD_WIDTH] T.T = ---;  ", i, seg);
+                        print_to_builder(*builder, "    a_%_%: [SIMD_WIDTH] T.T = ---;  ", i, seg);
                         for lane: 0..SW-1 {
                             print_to_builder(*builder, "a_%_%[%] = a.cells[%][%]; ", i, seg, lane, i, base + lane);
                         }
@@ -135,7 +135,7 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
         if ROW_SEGS > 0 {
             for i: 0..ROW-1 {
                 for seg: 0..ROW_SEGS-1 {
-                    print_to_builder(*builder, "\tr_%_%: [SIMD_WIDTH] T.T = ---;  \n", i, seg);
+                    print_to_builder(*builder, "    r_%_%: [SIMD_WIDTH] T.T = ---;  \n", i, seg);
                 }
             }
         }
@@ -146,7 +146,7 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             for i: 0..ROW-1 {
                 for k: 0..COL-1 {
                     if k >= total_simd_cols {
-                        print_to_builder(*builder, "\tbk_%_%: [SIMD_WIDTH] T.T = ---;  ", i, k);
+                        print_to_builder(*builder, "    bk_%_%: [SIMD_WIDTH] T.T = ---;  ", i, k);
                         for lane: 0..SW-1 {
                             print_to_builder(*builder, "bk_%_%[%] = a.cells[%][%]; ", i, k, lane, i, k);
                         }
@@ -171,14 +171,14 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
                 for i: 0..ROW-1 {
                     if in_seg {
                         if k_lane == 0 {
-                            print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%;\n", bcast_inst, i, k, i, k_seg);
+                            print_to_builder(*builder, "        %.x bc_%_%: vec, a_%_%;\n", bcast_inst, i, k, i, k_seg);
                         } else {
                             if is_f32 {
                                 shuf_imm := k_lane | (k_lane << 2) | (k_lane << 4) | (k_lane << 6);
-                                print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
+                                print_to_builder(*builder, "        %.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
                             } else {
                                 shuf_imm := k_lane | (k_lane << 1);
-                                print_to_builder(*builder, "\t\t%.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
+                                print_to_builder(*builder, "        %.x bc_%_%: vec, a_%_%, a_%_%, 0x%;\n", shuf_inst, i, k, i, k_seg, i, k_seg, formatInt(shuf_imm, base=16));
                             }
                         }
                     }
@@ -191,15 +191,15 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
 
                     for seg: 0..ROW_SEGS-1 {
                         if k == 0 {
-                            print_to_builder(*builder, "\t\t%.x r_%_%, %, b_%_%;\n", mul_inst, i, seg, bk_ref, k, seg);
+                            print_to_builder(*builder, "        %.x r_%_%, %, b_%_%;\n", mul_inst, i, seg, bk_ref, k, seg);
                         } else {
-                            print_to_builder(*builder, "\t\t%.x r_%_%, %, b_%_%;\n", fma_inst, i, seg, bk_ref, k, seg);
+                            print_to_builder(*builder, "        %.x r_%_%, %, b_%_%;\n", fma_inst, i, seg, bk_ref, k, seg);
                         }
                     }
                 }
             }
 
-            print_to_builder(*builder, "\t}\n");
+            print_to_builder(*builder, "    }\n");
         }
 
         // ---- Scalar tail columns (outside asm) ----
@@ -210,9 +210,9 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
                     for t: 0..ROW_TAIL-1 {
                         col := tail_base + t;
                         if k == 0 {
-                            print_to_builder(*builder, "\tresult.cells[%][%] = a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
+                            print_to_builder(*builder, "    result.cells[%][%] = a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
                         } else {
-                            print_to_builder(*builder, "\tresult.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
+                            print_to_builder(*builder, "    result.cells[%][%] += a.cells[%][%] * b.cells[%][%];\n", i, col, i, k, k, col);
                         }
                     }
                 }
@@ -224,13 +224,13 @@ simd_mat_mult :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
             for i: 0..ROW-1 {
                 if aligned {
                     for seg: 0..ROW_SEGS-1 {
-                        print_to_builder(*builder, "\tresult._simd_data.simd16[%] = r_%_%;\n", i * ROW_SEGS + seg, i, seg);
+                        print_to_builder(*builder, "    result._simd_data.simd16[%] = r_%_%;\n", i * ROW_SEGS + seg, i, seg);
                     }
                 } else {
                     for seg: 0..ROW_SEGS-1 {
                         base := seg * SW;
                         for lane: 0..SW-1 {
-                            print_to_builder(*builder, "\tresult.cells[%][%] = r_%_%[%];\n", i, base + lane, i, seg, lane);
+                            print_to_builder(*builder, "    result.cells[%][%] = r_%_%[%];\n", i, base + lane, i, seg, lane);
                         }
                     }
                 }

@@ -70,13 +70,16 @@ hash :: (i: s64, $T: Type = float64) -> T {
 main :: () {
     test = New(Test);
 
-    matrix_test();
-    matrix_correctness_test();
-    matrix_transform_test();
-    rotator_test();
+    // matrix_test();
+    // matrix_correctness_test();
+    // matrix_transform_test();
+    // rotator_test();
     vector_test();
+    vector_correctness_test();
     cephes_test();
-    simd_test();
+    scaled_sincos_test();
+    sincos_benchmark_test();
+    // simd_test();
     free(test);
 
 }

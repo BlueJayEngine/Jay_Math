@@ -33,11 +33,11 @@ FloatVectors :: Type.[Vec2, Vec2d, Vec3, Vec3d, Vec4, Vec4d];
 
 #import "String";
 
-Vector :: struct(N: u8, T: Type = float32, AXES: []string) {
+Vector :: struct(N: u32, T: Type = float32, AXES: []string) {
     #insert -> string {
         body_builder: String_Builder; // Mmmm... Muskles...
 
-        print_to_builder(*body_builder, "\t");
+        print_to_builder(*body_builder, "    ");
             for i: 0..N-1 {
                 if i<AXES.count {
                     print_to_builder(*body_builder, "%", AXES[i]);
@@ -51,21 +51,21 @@ Vector :: struct(N: u8, T: Type = float32, AXES: []string) {
             }
 
         #if AXES.count>0 {
-            print_to_builder(*body_builder, ": T #align 16;\n\t#overlay (%) values: [N] T = ---;\n", AXES[0]);
+            print_to_builder(*body_builder, ": T #align 16;\n    #overlay (%) values: [N] T = ---;\n", AXES[0]);
             for i: 1..N-1 {
                 for j: 0..N-i-1 {
                     if i+1 == N continue;
                     names: []string = AXES;
                     names.count = i+1;
                     names.data += j;
-                    print_to_builder(*body_builder, "\t#overlay (%) %: Vector(%, T, AXES) = ---;\n", AXES[j], join(..names), i+1);
+                    print_to_builder(*body_builder, "    #overlay (%) %: Vector(%, T, AXES) = ---;\n", AXES[j], join(..names), i+1);
                 }
             }
         } else {
-            print_to_builder(*body_builder, ": T;\n\t#overlay (_0); values: [N] T  = ---;\n");
+            print_to_builder(*body_builder, ": T;\n    #overlay (_0); values: [N] T  = ---;\n");
         }
         
-        result: [..][]u8;
+        result: [..][]u32;
 
         get_components(N, .[], *result);
 
@@ -84,7 +84,7 @@ Vector :: struct(N: u8, T: Type = float32, AXES: []string) {
         #insert -> string {
             builder: String_Builder;
             for i: 0..max(a.N, N)-1 {
-                print_to_builder(*builder, "\tresult.values[%1] = cast(T)vec.values[%1];\n", i);
+                print_to_builder(*builder, "    result.values[%1] = cast(T)vec.values[%1];\n", i);
             }
 
             return builder_to_string(*builder);
@@ -96,7 +96,7 @@ Vector :: struct(N: u8, T: Type = float32, AXES: []string) {
     new :: inline (n: $NT/Numbers) -> Vector(N, T, AXES) {
         #insert -> string {
             builder: String_Builder;
-            print_to_builder(*builder, "\treturn .{");
+            print_to_builder(*builder, "    return .{");
             for i: 0..N-1 {
                 print_to_builder(*builder, "n, ");
             }
@@ -149,7 +149,7 @@ normalize :: inline (v: $VT/Vector, epsilon: VT.T = 0, fallback := VT.{}) -> VT.
     #insert -> string {
         builder: String_Builder;
         for i: 0..VT.N-1 {
-            print_to_builder(*builder, "\tvec.values[%] *= factor;", i);
+            print_to_builder(*builder, "    vec.values[%] *= factor;", i);
         }
         return builder_to_string(*builder);
     } 
@@ -166,7 +166,7 @@ operator - :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] - b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -178,7 +178,7 @@ operator * :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] * b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -190,7 +190,7 @@ operator + :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] + b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -202,14 +202,12 @@ operator / :: inline (a: Vec3, b: Vec3) -> Vec3  #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] / b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
     return result;
 }
-// FALLBACK END
-
 // FALLBACK END
 
 
@@ -238,7 +236,7 @@ operator * :: inline (a: $T/IntVectors, b: type_of(a)) -> type_of(a) #no_abc #no
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] * b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -254,7 +252,7 @@ operator / :: inline (a: $T/IntVectors, b: type_of(a)) -> type_of(a) #no_abc #no
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b.values[%];\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] / b.values[%];\n", i, i, i);
         }
         return builder_to_string(*builder);
     }
@@ -268,7 +266,7 @@ operator + :: inline (a: Vector, b: $T/Numbers) -> type_of(a) #no_abc #no_aoc #s
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] + b;\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] + b;\n", i, i);
         }
 
         return builder_to_string(*builder);
@@ -282,7 +280,7 @@ operator - :: inline (a: Vector, b: $T/Numbers) -> type_of(a) #no_abc #no_aoc #s
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] - b;\n", i, i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] - b;\n", i, i);
         }
 
         return builder_to_string(*builder);
@@ -297,9 +295,9 @@ operator * :: inline (a: Vector, b: $T/Numbers) -> type_of(a) #no_abc #no_aoc #s
         builder: String_Builder;
         for i: 0..a.N-1 {
             if T != a.T {
-                print_to_builder(*builder, "\tresult.values[%] = cast(a.T)(a.values[%] * b);\n", i, i);
+                print_to_builder(*builder, "    result.values[%] = cast(a.T)(a.values[%] * b);\n", i, i);
             } else {
-                print_to_builder(*builder, "\tresult.values[%] = a.values[%] * b;\n", i, i);
+                print_to_builder(*builder, "    result.values[%] = a.values[%] * b;\n", i, i);
             }
         }
 
@@ -314,7 +312,7 @@ operator / :: inline (a: Vector, b: $T/Numbers) -> type_of(a) #no_abc #no_aoc #s
     #insert -> string {
         builder: String_Builder;
         for i: 0..a.N-1 {
-            print_to_builder(*builder, "\tresult.values[%] = a.values[%] / b;\n", i, i);
+            print_to_builder(*builder, "    result.values[%] = a.values[%] / b;\n", i, i);
         }
 
         return builder_to_string(*builder);
@@ -326,7 +324,7 @@ operator / :: inline (a: Vector, b: $T/Numbers) -> type_of(a) #no_abc #no_aoc #s
 operator == :: (a: Vector, b: type_of(a)) -> bool #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\treturn a.values[0] == b.values[0]");
+        print_to_builder(*builder, "    return a.values[0] == b.values[0]");
         for i: 1..a.N-1 {
             print_to_builder(*builder, " && a.values[%1] == b.values[%1]", i);
         }
@@ -339,9 +337,9 @@ operator == :: (a: Vector, b: type_of(a)) -> bool #no_abc #no_aoc {
 operator != :: (a: Vector, b: type_of(a)) -> bool #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\treturn a.values[0] != b.values[0]\n");
+        print_to_builder(*builder, "    return a.values[0] != b.values[0]\n");
         for i: 1..a.N-1 {
-            print_to_builder(*builder, "\t\t&& a.values[%1] != b.values[%1]", i);
+            print_to_builder(*builder, "        || a.values[%1] != b.values[%1]", i);
         }
         print_to_builder(*builder, ";");
 
@@ -349,12 +347,12 @@ operator != :: (a: Vector, b: type_of(a)) -> bool #no_abc #no_aoc {
     }
 }
 
-get_components :: (n: u8, prefix: []u8, result: *[..][]u8) {
+get_components :: (n: u32, prefix: []u32, result: *[..][]u32) {
     if n <= 0 then {
         array_add(result, prefix);
     } else {
         for i: 1..n {
-            new_prefix: [..]u8;
+            new_prefix: [..]u32;
 
             array_add(*new_prefix, ..prefix);
             array_add(*new_prefix, i);
@@ -363,8 +361,8 @@ get_components :: (n: u8, prefix: []u8, result: *[..][]u8) {
     }
 }
 
-build_init :: (builder: *String_Builder, components: []u8, axes: []string) {
-    print_to_builder(builder, "\n\tnew :: (");
+build_init :: (builder: *String_Builder, components: []u32, axes: []string) {
+    print_to_builder(builder, "\n    new :: (");
 
     offset := 0;
 
@@ -391,7 +389,7 @@ build_init :: (builder: *String_Builder, components: []u8, axes: []string) {
 
     print_to_builder(builder, ") -> Vector(N, T, AXES) {\n");
 
-    print_to_builder(builder, "\t\tresult: Vector(N, T, AXES);\n\n");
+    print_to_builder(builder, "        result: Vector(N, T, AXES);\n\n");
 
     target_index := 0;
     offset = 0;
@@ -406,16 +404,16 @@ build_init :: (builder: *String_Builder, components: []u8, axes: []string) {
 
         if component > 1 {
             for i: 0..component-1 {
-                print_to_builder(builder, "\t\tresult.values[%] = %.values[%];\n", target_index, arg_name, i);
+                print_to_builder(builder, "        result.values[%] = %.values[%];\n", target_index, arg_name, i);
                 target_index +=1;
             }   
         } else {
-            print_to_builder(builder, "\t\tresult.values[%] = %;\n", target_index, arg_name);
+            print_to_builder(builder, "        result.values[%] = %;\n", target_index, arg_name);
             target_index +=1;
         }
     }
 
-    print_to_builder(builder, "\n\t\treturn result;\n\t}\n");
+    print_to_builder(builder, "\n        return result;\n    }\n");
 }
 
 lerp :: inline (a: Vector, b: type_of(a), t: float32) -> type_of(a) {

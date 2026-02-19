@@ -13,13 +13,13 @@ Matrix2 :: Type.[Mat2, Mat2d];
 Matrix3 :: Type.[Mat3, Mat3d];
 Matrix4 :: Type.[Mat3, Mat3d];
 
-Matrix :: struct(COL: u8, ROW: u8, T: Type) {
+Matrix :: struct(COL: u32, ROW: u32, T: Type) {
     N :: COL * ROW;
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "//\tMatrix(%1,%2,%3)\n", COL, ROW, T);
+        print_to_builder(*builder, "//  Matrix(%1,%2,%3)\n", COL, ROW, T);
         for h: 1..ROW {
-            print_to_builder(*builder, "\t");
+            print_to_builder(*builder, "    ");
             for w: 1..COL {
                 print_to_builder(*builder, "_%1%2", h, w);
 
@@ -76,7 +76,7 @@ operator[] :: (mat: *$MT/Matrix, index: int) -> [MT.COL] MT.T {
 operator== :: (a: $T/Matrix, b: T) -> bool #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\treturn a.values[0] == b.values[0]");
+        print_to_builder(*builder, "    return a.values[0] == b.values[0]");
         for i: 1..T.N-1 {
             print_to_builder(*builder, " && a.values[%1] == b.values[%1]", i);
         }
@@ -88,7 +88,7 @@ operator== :: (a: $T/Matrix, b: T) -> bool #no_abc #no_aoc {
 operator!= :: (a: $T/Matrix, b: T) -> bool #no_abc #no_aoc {
     #insert -> string {
         builder: String_Builder;
-        print_to_builder(*builder, "\treturn a.values[0] != b.values[0]");
+        print_to_builder(*builder, "    return a.values[0] != b.values[0]");
         for i: 1..T.N-1 {
             print_to_builder(*builder, " || a.values[%1] != b.values[%1]", i);
         }
@@ -414,12 +414,12 @@ rotate :: inline (mat: *$MT/Matrix, angle: $T/Numbers, axis: $VT/Vector) {
         builder: String_Builder;
         for i: 0..MT.ROW-1 {
             for j: 0..2 {
-                print_to_builder(*builder, "\t_r%1_%2 := mat.cells[%1][0] * rot.cells[0][%2] + mat.cells[%1][1] * rot.cells[1][%2] + mat.cells[%1][2] * rot.cells[2][%2];\n", i, j);
+                print_to_builder(*builder, "    _r%1_%2 := mat.cells[%1][0] * rot.cells[0][%2] + mat.cells[%1][1] * rot.cells[1][%2] + mat.cells[%1][2] * rot.cells[2][%2];\n", i, j);
             }
         }
         for i: 0..MT.ROW-1 {
             for j: 0..2 {
-                print_to_builder(*builder, "\tmat.cells[%1][%2] = _r%1_%2;\n", i, j);
+                print_to_builder(*builder, "    mat.cells[%1][%2] = _r%1_%2;\n", i, j);
             }
         }
         return builder_to_string(*builder);
@@ -511,12 +511,12 @@ face :: inline (mat: *$MT/Matrix, direction: $VT/Vector, up: VT) {
         builder: String_Builder;
         for i: 0..MT.ROW-1 {
             for j: 0..2 {
-                print_to_builder(*builder, "\t_r%1_%2 := mat.cells[%1][0] * orientation.cells[0][%2] + mat.cells[%1][1] * orientation.cells[1][%2] + mat.cells[%1][2] * orientation.cells[2][%2];\n", i, j);
+                print_to_builder(*builder, "    _r%1_%2 := mat.cells[%1][0] * orientation.cells[0][%2] + mat.cells[%1][1] * orientation.cells[1][%2] + mat.cells[%1][2] * orientation.cells[2][%2];\n", i, j);
             }
         }
         for i: 0..MT.ROW-1 {
             for j: 0..2 {
-                print_to_builder(*builder, "\tmat.cells[%1][%2] = _r%1_%2;\n", i, j);
+                print_to_builder(*builder, "    mat.cells[%1][%2] = _r%1_%2;\n", i, j);
             }
         }
         return builder_to_string(*builder);
@@ -756,7 +756,7 @@ normalize :: inline (v: *$VT/Vector) {
     #insert -> string {
         builder: String_Builder;
         for i: 0..VT.N-1 {
-            print_to_builder(*builder, "\tv.values[%] *= xx factor;", i);
+            print_to_builder(*builder, "    v.values[%] *= xx factor;", i);
         }
         return builder_to_string(*builder);
     }

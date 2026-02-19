@@ -8,7 +8,7 @@ trunc :: inline (x: $T/Numbers) -> T {
 }
 
 is_nan_is_inf :: inline (x: float64) -> (is_nan: bool, isinf: bool) {
-    uf := (.*) cast(*u64)*x;
+    uf := reinterp(u64, x);
 
     unbiased_exponent := cast(s32) ((uf >> 52) & 0x7ff);  // @Feature: What we really mean here is "cast to whatever you think is a fast number, that is at least some size... [in this case it needs to be at least 11 bits!]
 
@@ -51,13 +51,29 @@ is_nan_is_inf :: inline (x: float32) -> (is_nan: bool, isinf: bool) {
     return false, false;
 }
 
-is_nan :: inline (x: $T/Numbers) -> bool {
+is_nan :: inline (x: $T/Floats) -> bool {
     return is_nan_is_inf(x);
 }
 
-is_inf :: inline (x: $T/Numbers) -> bool {
+is_inf :: inline (x: $T/Floats) -> bool {
     _, _isinf := is_nan_is_inf(x);
     return _isinf;
+}
+
+set_bit :: inline (x: $T/Integers, nth: s64) {
+    // Bitwise OR with the mask
+    return (x | (1 << (nth - 1)));
+}
+
+clear_bit :: inline (x: $T/Integers, nth: s64) {
+    // Bitwise AND with the mask
+    return (x & (~(1 << (nth - 1))));
+}
+
+
+toggle_bit :: inline (x: $T/Integers, nth: s64) {
+    // Bitwise XOR with the mask
+    return (x ^ (1 << (nth - 1)));
 }
 
 signbit :: inline (x: float64) -> u64 {
@@ -68,12 +84,7 @@ signbit :: inline (x: float32) -> u32 {
     return reinterp(u32, x) & 0x8000_0000;
 }
 
-
-frac :: inline (x: $T/Floats) -> T
-#modify {
-    if (T == float32) || (T == float64) return true;
-    return false;
-} {
+frac :: inline (x: $T/Floats) -> T {
     return x - floor(x);
 }
 
@@ -89,13 +100,14 @@ inv_sqrt :: inline (x: $T/Numbers) -> T {
     return 1/sqrt(x);
 }
 
-finv_sqrt :: inline (x: $T/Numbers) -> T {
+// Quake III fast inverse square root
+finv_sqrt :: inline (x: $T/Numbers) -> T {  
     y := x;
 
-    i: s64 = (.*)(cast(*s64) *y);
+    i: s64 = reinterp(s64, y);
 
     i = 0x5f3759df - ( i >> 1 );
-    y = (.*)(cast(*float32) *i);
+    y = reinterp(float32, i);
 
     y = y * ( 1.5 - ( (x * 0.5) * y * y ) );
 
@@ -256,14 +268,40 @@ sin :: inline (x: float64) -> float64 {
     s, _ := inline sincos(x, do_sin = true, do_cos = false);
     return s;
 }
-sin :: inline (x: $T/Integers) -> T { return xx floor(sin(cast(float64)x) + 0.5); }
+sin :: inline (x: $T/Integers) -> float64 { return sin(cast(float64)x); }
+
+// Scaled integer sin via compile-time LUT.
+// Input:  x in [0..scale*4) maps to one full period [0..2π).
+// Output: [-scale..scale] as T.
+sin :: inline (x: $T/Integers, $scale: s64) -> T {
+    table :: #run generate_sin_lut(scale);
+    PERIOD :: scale * 4;
+    i := ((x % PERIOD) + PERIOD) % PERIOD;  // normalize to [0..PERIOD)
+    quadrant := i / scale;
+    index    := i % scale;
+
+    if quadrant == {
+        case 0; return  cast(T) table[index];
+        case 1; return  cast(T) table[scale - index];
+        case 2; return -cast(T) table[index];
+        case 3; return -cast(T) table[scale - index];
+    }
+    return 0;
+}
 
 cos :: inline (x: float32) -> float32 { return cast(float32) cos(cast(float64) x); } 
 cos :: inline (x: float64) -> float64 {
     _, c := inline sincos(x, do_sin = false, do_cos = true);
     return c;
 }
-cos :: inline (x: $T/Integers) -> T { return xx floor(cos(cast(float64)x) + 0.5); }
+cos :: inline (x: $T/Integers) -> float64 { return cos(cast(float64)x); }
+
+// Scaled integer cos via compile-time LUT (phase-shifted sin).
+// Input:  x in [0..scale*4) maps to one full period [0..2π).
+// Output: [-scale..scale] as T.
+cos :: inline (x: $T/Integers, $scale: s64) -> T {
+    return sin(x + scale, scale);
+}
 
 sincos :: inline (x: float64, $do_sin: bool, $do_cos: bool) -> (sin_value: float64, cos_value: float64) {
     #assert do_sin || do_cos "sincos: at least one of do_sin or do_cos must be true"; 
@@ -350,7 +388,7 @@ tan :: inline (x: float64) -> float64 {
     s,c := sincos(x, true, true);
     return s/c;
 }
-tan :: inline (x: $T/Integers) -> T { return xx floor(tan(cast(float64)x) + 0.5); }
+tan :: inline (x: $T/Integers) -> float64 { return tan(cast(float64)x); }
 
 atan :: inline (y: float32) -> float32 { return cast(float32) atan(cast(float64)y); } 
 atan :: inline (x: float64) -> float64 {
@@ -396,7 +434,7 @@ atan :: inline (x: float64) -> float64 {
     if sign < 0  return -y;
     return y;
 }
-atan :: inline (x: $T/Integers) -> T { return xx floor(atan(cast(float64)x) + 0.5); }
+atan :: inline (x: $T/Integers) -> float64 { return atan(cast(float64)x); }
 
 atan2 :: (y: float, x: float) -> float { return cast(float) atan2(cast(float64) y, cast(float64) x); } 
 atan2 :: (y: float64, x: float64) -> float64 {
@@ -485,7 +523,7 @@ atan2 :: (y: float64, x: float64) -> float64 {
     return z;
 }
 
-atan2 :: inline (y: $T/Integers, x: T) -> T { return xx floor(atan2(cast(float64)y, cast(float64)x) + 0.5); }
+atan2 :: inline (y: $T/Integers, x: T) -> float64 { return atan2(cast(float64)y, cast(float64)x); }
 
 sqrt :: inline (x: float) -> float {
     #if CPU == .X64 {
@@ -543,7 +581,7 @@ asin :: inline (x: float64) -> float64 {
     z = a * z + a;
     return z * sign;
 }
-asin :: inline (x: $T/Integers) -> T { return xx floor(asin(cast(float64)x) + 0.5); }
+asin :: inline (x: $T/Integers) -> float64 { return asin(cast(float64)x); }
 
 acos :: inline (y: float32) -> float32 { return cast(float32) acos(cast(float64)y); }
 acos :: inline (x: float64) -> float64 {
@@ -556,7 +594,7 @@ acos :: inline (x: float64) -> float64 {
     z = z + PIO4;
     return z;
 }
-acos :: inline (x: $T/Integers) -> T { return xx floor(acos(cast(float64)x) + 0.5); }
+acos :: inline (x: $T/Integers) -> float64 { return acos(cast(float64)x); }
 
 exp :: inline (y: float32) -> float32 { return cast(float32) exp(cast(float64)y); }
 exp :: inline (x: float64) -> float64 {
@@ -597,7 +635,7 @@ exp :: inline (x: float64) -> float64 {
     pow2._u64 = cast(u64)(1023 + n2) << 52;
     return x * pow1._float64 * pow2._float64;
 }
-exp :: inline (x: $T/Integers) -> T { return xx floor(exp(cast(float64)x) + 0.5); }
+exp :: inline (x: $T/Integers) -> float64 { return exp(cast(float64)x); }
 
 log :: inline (y: float32) -> float32 { return cast(float32) log(cast(float64)y); }
 log :: inline (x: float64) -> float64 {
@@ -668,13 +706,13 @@ log :: inline (x: float64) -> float64 {
 
     return z;
 }
-log :: inline (x: $T/Integers) -> T { return xx floor(log(cast(float64)x) + 0.5); }
+log :: inline (x: $T/Integers) -> float64 { return log(cast(float64)x); }
 
 log2 :: inline (y: float32) -> float32 { return cast(float32) log2(cast(float64)y); }
 log2 :: inline (x: float64) -> float64 {
     return log(x) * LOG2E;
 }
-log2 :: inline (x: $T/Integers) -> T { return xx floor(log2(cast(float64)x) + 0.5); }
+log2 :: inline (x: $T/Integers) -> float64 { return log2(cast(float64)x); }
 
 pow :: inline (y: float32, p: float32) -> float32 { return cast(float32) pow(cast(float64)y, cast(float64)p); }
 pow :: inline (x: float64, y: float64) -> float64 {
@@ -744,7 +782,7 @@ pow :: inline (x: float64, y: float64) -> float64 {
 
     return z;
 }
-pow :: inline (x: $T/Integers, y: T) -> T { return xx floor(pow(cast(float64)x, cast(float64)y) + 0.5); }
+pow :: inline (x: $T/Integers, y: T) -> float64 { return pow(cast(float64)x, cast(float64)y); }
 
 
 #scope_module
@@ -771,6 +809,15 @@ polynomial_eval_sincof5 :: inline (x: float64) -> float64 {
     return (1.58962301576546568060E-10*x -  2.50507477628578072866E-8)*x4 +
     (2.75573136213857245213E-6*x  -  1.98412698295895385996E-4)*x2 +
     8.33333333332211858878E-3*x  -  1.66666666666666307295E-1;
+}
+
+generate_sin_lut :: ($scale: s64) -> [scale + 1]s64 {
+    table: [scale + 1]s64;
+    for i: 0..scale {
+        angle := cast(float64)i / cast(float64)scale * (PI64 / 2.0);
+        table[i] = cast(s64)(sin(angle) * cast(float64)scale + 0.5);
+    }
+    return table;
 }
 
 MOREBITS :: 6.123233995736765886130e-17;

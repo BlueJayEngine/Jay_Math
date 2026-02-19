@@ -29,14 +29,14 @@ get_simd_magic :: ($type: Type, count: s64) -> (segments_32: s64, segments_16: s
     seg16 := 0;
     tail := 0;
 
-    is_opt :: #run -> bool {
-        #import "Compiler";
-        opts := get_build_options();
-        return opts.emit_debug_info == .NONE;
-    }
+    // is_opt :: #run -> bool {
+    //     #import "Compiler";
+    //     opts := get_build_options();
+    //     return opts.emit_debug_info == .NONE;
+    // }
 
     // #if is_opt {
-        // if total_size >= 32 {       // TODO: HANDLE 32-byte registry
+        // if total_size >= 32 {       // TODO: HANDLE 32-byte registry and optimization level
         //     seg32 = total_size/32;  // Seems like we need to wait for when state of LLVM will chenge, idk for now
         //     total_size -= seg32*32;
         // }
@@ -145,7 +145,7 @@ simd :: inline (a: []$T, b: [$N]T, $op: Simd_Op) {
             }
         }
     }
-    }
+}
 
 
 

@@ -58,8 +58,12 @@ EPSILON_64 :float64: 0h3CB0_0001_DD9D_C7D3;
 
 
 Numbers :: Type.[s8, u8, s16, u16, s32, u32, float32, s64, u64, float64];
+
 Floats :: Type.[float32, float64];
+
 Integers :: Type.[s8, u8, s16, u16, s32, u32, s64, u64];
+Signed :: Type.[s8, s16, s32, s64];
+Unsigned :: Type.[u8, u16, u32, u64];
 
 Numbers16 :: Type.[s16, u16];
 Numbers32 :: Type.[s32, u32, float32];

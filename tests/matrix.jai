@@ -1,6 +1,5 @@
 matrix_test :: () {
-
-// Mat2
+    // Mat2
     operator_test("_Mat2d", "+");
     operator_test("_Mat2d", "-");
     operator_test("_Mat2d", "*");
