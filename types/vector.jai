@@ -33,7 +33,7 @@ FloatVectors :: Type.[Vec2, Vec2d, Vec3, Vec3d, Vec4, Vec4d];
 
 #import "String";
 
-Vector :: struct(N: u32, T: Type = float32, AXES: []string) {
+Vector :: struct(N: s64, T: Type = float32, AXES: []string) {
     #insert -> string {
         body_builder: String_Builder; // Mmmm... Muskles...
 
@@ -65,7 +65,7 @@ Vector :: struct(N: u32, T: Type = float32, AXES: []string) {
             print_to_builder(*body_builder, ": T;\n    #overlay (_0); values: [N] T  = ---;\n");
         }
         
-        result: [..][]u32;
+        result: [..][]s64;
 
         get_components(N, .[], *result);
 
@@ -347,12 +347,12 @@ operator != :: (a: Vector, b: type_of(a)) -> bool #no_abc #no_aoc {
     }
 }
 
-get_components :: (n: u32, prefix: []u32, result: *[..][]u32) {
+get_components :: (n: s64, prefix: []s64, result: *[..][]s64) {
     if n <= 0 then {
         array_add(result, prefix);
     } else {
         for i: 1..n {
-            new_prefix: [..]u32;
+            new_prefix: [..]s64;
 
             array_add(*new_prefix, ..prefix);
             array_add(*new_prefix, i);
@@ -361,7 +361,7 @@ get_components :: (n: u32, prefix: []u32, result: *[..][]u32) {
     }
 }
 
-build_init :: (builder: *String_Builder, components: []u32, axes: []string) {
+build_init :: (builder: *String_Builder, components: []s64, axes: []string) {
     print_to_builder(builder, "\n    new :: (");
 
     offset := 0;

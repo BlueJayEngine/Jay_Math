@@ -13,7 +13,7 @@ Matrix2 :: Type.[Mat2, Mat2d];
 Matrix3 :: Type.[Mat3, Mat3d];
 Matrix4 :: Type.[Mat3, Mat3d];
 
-Matrix :: struct(COL: u32, ROW: u32, T: Type) {
+Matrix :: struct(COL: s64, ROW: s64, T: Type) {
     N :: COL * ROW;
     #insert -> string {
         builder: String_Builder;
