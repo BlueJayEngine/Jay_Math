@@ -123,6 +123,27 @@ operator* :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
     return inline simd_mat_mult(a, b);
 }
 
+operator* :: inline (a: $T/Matrix, b: $VT/Vector) -> VT #no_abc #no_aoc {
+    #assert T.COL == VT.N "Vector size must match matrix column count for multiplication";
+    
+    result: VT = ---;
+    
+    #insert -> string {
+        builder: String_Builder;
+        for row: 0..T.ROW-1 {
+            print_to_builder(*builder, "    result.values[%] = ", row);
+            for col: 0..T.COL-1 {
+                if col > 0 print_to_builder(*builder, " + ");
+                print_to_builder(*builder, "a.cells[%][%] * xx b.values[%]", row, col, col);
+            }
+            print_to_builder(*builder, ";\n");
+        }
+        return builder_to_string(*builder);
+    }
+    
+    return result;
+}
+
 operator/ :: inline (a: $T/Matrix, b: T) -> T #no_abc #no_aoc {
     #assert T.COL == T.ROW "Matrix division requires square matrices; use element-wise ops for non-square";
     return a * inverse(b);
