@@ -34,6 +34,9 @@ FloatVectors :: Type.[Vec2, Vec2d, Vec3, Vec3d, Vec4, Vec4d];
 #import "String";
 
 Vector :: struct(N: s64, T: Type = float32, AXES: []string) {
+
+    #assert N > 1 "Vector with length of 1 and below are illegal in this part of town.";
+
     #insert -> string {
         body_builder: String_Builder; // Mmmm... Muskles...
 
@@ -94,15 +97,17 @@ Vector :: struct(N: s64, T: Type = float32, AXES: []string) {
     }
 
     new :: inline (n: $NT/Numbers) -> Vector(N, T, AXES) {
+        result: Vector(N, T, AXES) = ---; 
         #insert -> string {
             builder: String_Builder;
-            print_to_builder(*builder, "    return .{");
+            
             for i: 0..N-1 {
-                print_to_builder(*builder, "n, ");
+                print_to_builder(*builder, "result.values[%] = xx n; ", i);
             }
 
             return builder_to_string(*builder);
         }
+        return result;
     }
 
     #overlay (values) _simd_data: Simd_Vector(T, N);

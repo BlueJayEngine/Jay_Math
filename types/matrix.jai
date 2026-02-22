@@ -15,6 +15,8 @@ Matrix4 :: Type.[Mat3, Mat3d];
 
 Matrix :: struct(COL: s64, ROW: s64, T: Type) {
     N :: COL * ROW;
+    #assert N > 0 "Matrices with size of 0 are illegal in this part of town.";
+
     #insert -> string {
         builder: String_Builder;
         print_to_builder(*builder, "//  Matrix(%1,%2,%3)\n", COL, ROW, T);
